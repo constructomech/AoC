@@ -54,16 +54,16 @@ foreach (var significantValve in significantValves)
 {
     var dist = CalculateDistance(start, significantValve);
 
-    Traverse(dist, ImmutableHashSet<int>.Empty.Add(significantValve.id), significantValve, significantValve.flowRate * (30 - dist));
+    Traverse(dist, ImmutableHashSet<int>.Empty.Add(significantValve.id), significantValve, significantValve.flowRate * (26 - dist), true);
 }
 
 watch.Stop();
 Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
 
-void Traverse(int currentDistance, ImmutableHashSet<int> visited, Valve currentValve, int totalPressure)
+void Traverse(int currentDistance, ImmutableHashSet<int> visited, Valve currentValve, int totalPressure, bool part2)
 {
-    if (currentDistance > 30) return;
+    if (currentDistance > 26) return;
     if (totalPressure > maxPressure)
     {
         maxPressure = totalPressure;
@@ -75,9 +75,14 @@ void Traverse(int currentDistance, ImmutableHashSet<int> visited, Valve currentV
         if (visited.Contains(id)) continue;
         
         var nextValve = allValves[id];
-        var newFlowrate = nextValve.flowRate * (30 - currentDistance - distance);
+        var newFlowrate = nextValve.flowRate * (26 - currentDistance - distance);
 
-        Traverse(currentDistance + distance, visited.Add(id), nextValve, totalPressure + newFlowrate);
+        Traverse(currentDistance + distance, visited.Add(id), nextValve, totalPressure + newFlowrate, part2);
+    }
+
+    if (part2)
+    {
+        Traverse(0, visited, start, totalPressure, false);
     }
 }
 
