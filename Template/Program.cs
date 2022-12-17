@@ -1,20 +1,18 @@
-﻿using System.IO;
-using System.Collections.Generic;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 
-long result = 0;
 
-using (StreamReader reader = File.OpenText("input.txt"))
-{
-    while (!reader.EndOfStream)
-    {
-        string? line = reader.ReadLine();
-        if (line != null) {
-            // Implement
-        }
-    }
-}
+Stopwatch watch = new Stopwatch();
+watch.Start();
 
-Console.WriteLine("Result: {0}", result);
+var input = File.ReadAllLines("input.txt");
+
+
+// Implement here
+
+
+watch.Stop();
+Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
 
 static class Fun {
