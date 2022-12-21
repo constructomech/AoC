@@ -5,151 +5,261 @@ using System.Diagnostics;
 Stopwatch watch = new Stopwatch();
 watch.Start();
 
-// List of blueprints which map <resource name> -> (costs indexed by resource)
-var blueprints = new List<Dictionary<Resource, int[]>>();
 
 var input = File.ReadAllLines("input.txt");
-foreach (var line in input) 
-{
-    var blueprint = new Dictionary<Resource, int[]>();
+var blueprints = Parse(input).ToList();
 
-    var parts = line.Split(':');
-    parts = parts[1].Split('.', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+//var cache = new Dictionary<State, int>();
 
-    foreach (var phrase in parts)
-    {
-        var words = phrase.Split(' ');
-        
-        // Each ore robot costs 4 ore.
-        // Each obsidian robot costs 4 ore and 16 clay.
-        var resource = (Resource)Enum.Parse(typeof(Resource), words[1]);
-        var recipeReqs = new int[4];
-
-        var count1 = Convert.ToInt32(words[4]);
-        var res1 = (int)Enum.Parse(typeof(Resource), words[5]);
-        recipeReqs[res1] = count1;
-
-        if (words.Length >= 8) {
-            var count2 = Convert.ToInt32(words[7]);
-            var res2 = (int)Enum.Parse(typeof(Resource), words[8]);
-            recipeReqs[res2] = count2;
-        }
-        blueprint.Add(resource, recipeReqs);
-    }
-    blueprints.Add(blueprint);
-}
-
-int maxGeodes = 0;
 int sumOfQuality = 0;
 for (var i = 0; i < blueprints.Count; i++) 
 {
     Console.WriteLine($"Solving blueprint {i}");
+
     var blueprint = blueprints[i];
-    int crackedGeodes = Solve(blueprint);
-    int qualityLevel = (i + 1) * crackedGeodes;
+    int geodes = MaxGeodes(blueprint, 24);
+    int qualityLevel = (i + 1) * geodes;
 
     sumOfQuality += qualityLevel;
 }
-
 
 watch.Stop();
 Console.WriteLine($"Result: {sumOfQuality} Completed in {watch.ElapsedMilliseconds}ms");
 
 
-//------------------------------------------------------------------------------------------
-// Maximize opened Geodes in 24 minutes
-//   ore collecting
-//   clay collecting
-//   obsidian collecting
-//   geode cracking
-// Resouces (ore, clay, obsidian, geodes, cracked_geodes)
-//
-
-int Solve(Dictionary<Resource, int[]> blueprint)
+int MaxGeodes(Blueprint blueprint, int maxTime) 
 {
-    maxGeodes = 0;
+    int maxGeodes = 0;
+    var stack = new Stack<State>();
+    stack.Push(new State(maxTime, Material.Zero, new Material(1, 0, 0, 0)));
 
-    InternalSolve(blueprint, 24, new Resources(1, 0, 0, 0, new int[4]));
+    while (stack.Count > 0)
+    {
+        var current = stack.Pop();
+
+        if (current.remainingTime == 0) {
+
+            if (current.inventory.geode > maxGeodes)
+            {
+                maxGeodes = current.inventory.geode;
+                Console.WriteLine($"  Found new maximum: {maxGeodes}");
+            }
+        }
+        else
+        {
+            foreach (var nextState in NextStates(maxTime, blueprint, current))
+            {
+                stack.Push(nextState);
+            }
+        }
+    }
 
     return maxGeodes;
 }
 
-
-void InternalSolve(Dictionary<Resource, int[]> blueprint, int timeRemaining, Resources @in) 
+IEnumerable<State> NextStates(int maxTime, Blueprint blueprint, State current)
 {
-    if (timeRemaining <= 0) return;
+    // Return the states in the order of least important to most important
+    //   since we're adding to a stack.
+    int turnsToProduce = int.MaxValue;
+    Material? newInventory = null;
+    int timeRemaining = 0;
+    bool noRobots = true;
 
-    if (@in.resourceCounts[(int)Resource.geode] > maxGeodes)
+    // Consider building an ore robot
+    if (current.production.ore < blueprint.maxOreNeed)
     {
-        maxGeodes = @in.resourceCounts[(int)Resource.geode];
-        Console.WriteLine($"New max cracked geodes {maxGeodes}");
-    }
-
-    // Cut off branches with no chance of beating maxGeodes
-    //   If I ever see a inventory that's a subset of any step less than or equal to my step, discard
-
-    // Do production
-    //
-    var postProductionResourceCounts = new int[4];
-    postProductionResourceCounts[(int)Resource.ore] = @in.resourceCounts[(int)Resource.ore] + @in.oreRobots;
-    postProductionResourceCounts[(int)Resource.clay] = @in.resourceCounts[(int)Resource.clay] + @in.clayRobots;
-    postProductionResourceCounts[(int)Resource.obsidian] = @in.resourceCounts[(int)Resource.obsidian] + @in.obsidianRobots;
-    postProductionResourceCounts[(int)Resource.geode] = @in.resourceCounts[(int)Resource.geode] + @in.geodeRobots;
-
-    // If resource needs are met, attempt a build of each type of robot recursively
-    // 
-    foreach (var (resource, recipe) in blueprint) 
-    {
-        var costs = blueprint[resource];
-
-        bool valid = true;
-        var liquidResourceCounts = (int[])@in.resourceCounts.Clone();
-        for (int i = 0; i < 4; i++) 
+        (turnsToProduce, newInventory) = TurnsToProduce(blueprint.ore, current);
+        timeRemaining = current.remainingTime - turnsToProduce;
+        if (timeRemaining > 0) 
         {
-            liquidResourceCounts[i] -= recipe[i];
-            if (liquidResourceCounts[i] < 0) {
-                valid = false;
-                break;
-            }
-        }
-
-        if (valid) {
-            int ord = 0, cld = 0, obd = 0, ged = 0;
-            switch (resource) {
-                case Resource.ore:
-                    ord++;
-                    break;
-                case Resource.clay:
-                    cld++;
-                    break;
-                case Resource.obsidian:
-                    obd++;
-                    break;
-                case Resource.geode:
-                    ged++;
-                    break;
-            }
-
-            for (int i = 0; i < 4; i++) 
-            {
-                postProductionResourceCounts[i] -= recipe[i];
-            }
-
-            InternalSolve(blueprint, timeRemaining - 1, 
-                new Resources(@in.oreRobots + ord, @in.clayRobots + cld, @in.obsidianRobots + obd, @in.geodeRobots + ged, postProductionResourceCounts));
+            noRobots = false;
+            yield return new State(timeRemaining, newInventory!, current.production + blueprint.ore.produces);
         }
     }
 
-    InternalSolve(blueprint, timeRemaining - 1, 
-        new Resources(@in.oreRobots, @in.clayRobots, @in.obsidianRobots, @in.geodeRobots, postProductionResourceCounts));
+    // Consider building a clay robot
+    if (current.production.clay < blueprint.maxClayNeed)
+    {
+        (turnsToProduce, newInventory) = TurnsToProduce(blueprint.clay, current);
+        timeRemaining = current.remainingTime - turnsToProduce;
+        if (timeRemaining > 0) 
+        {
+            noRobots = false;
+            yield return new State(timeRemaining, newInventory!, current.production + blueprint.clay.produces);
+        }
+    }
+
+    // Consider building an obsidian robot
+    if (current.production.obsidian < blueprint.maxObsidianNeed)
+    {
+        (turnsToProduce, newInventory) = TurnsToProduce(blueprint.obsidian, current);
+        timeRemaining = current.remainingTime - turnsToProduce;
+        if (timeRemaining > 0)
+        {
+            noRobots = false;
+            yield return new State(timeRemaining, newInventory!, current.production + blueprint.obsidian.produces);
+        }
+    }
+
+    // Consider building a geode robot
+    (turnsToProduce, newInventory) = TurnsToProduce(blueprint.geode, current);
+    timeRemaining = current.remainingTime - turnsToProduce;
+    if (timeRemaining > 0) 
+    {
+        noRobots = false;
+        yield return new State(timeRemaining, newInventory!, current.production + blueprint.geode.produces);
+    }
+
+    if (noRobots)
+    {
+        yield return new State(0, current.inventory + current.production * current.remainingTime, current.production);
+    }
 }
 
-record Resources(int oreRobots, int clayRobots, int obsidianRobots, int geodeRobots, int[] resourceCounts);
-
-enum Resource 
+(int turns, Material? inventory) TurnsToProduce(Robot robot, State state) 
 {
-    ore = 0,
-    clay = 1,
-    obsidian = 2,
-    geode = 3,
+    if (robot.cost.ore > 0 && state.production.ore == 0) return (int.MaxValue, null);
+    if (robot.cost.clay > 0 && state.production.clay == 0) return (int.MaxValue, null);
+    if (robot.cost.obsidian > 0 && state.production.obsidian == 0) return (int.MaxValue, null);
+
+    int turns = 0;
+    var inventory = state.inventory - robot.cost;
+    while (true) 
+    {
+        if (inventory >= Material.Zero)
+        {
+            return (turns, inventory);
+        }
+
+        inventory += state.production;
+        turns++;
+    }
+}
+
+IEnumerable<Blueprint> Parse(string[] input) 
+{
+    foreach (var line in input) 
+    {
+        var robots = new List<Robot>();
+
+        var parts = line.Split(':');
+        parts = parts[1].Split('.', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        foreach (var phrase in parts)
+        {
+            var words = phrase.Split(' ');
+            
+            // Each ore robot costs 4 ore.
+            // Each obsidian robot costs 4 ore and 16 clay.
+            var produces = Material.FromString(words[1], 1);
+
+            var cost = Material.FromString(words[5], Convert.ToInt32(words[4]));
+
+            if (words.Length >= 8) {
+                cost += Material.FromString(words[8], Convert.ToInt32(words[7]));
+            }
+
+            robots.Add(new Robot(cost, produces));
+        }
+
+        yield return Blueprint.FromRobots(robots);
+    }
+}
+
+record Material(int ore, int clay, int obsidian, int geode) {
+    public static Material Zero = new Material(0, 0, 0, 0);
+
+    public static Material FromString(string name, int quantity)
+    {
+        switch (name)
+        {
+            case "ore":       return new Material(quantity, 0, 0, 0);
+            case "clay":      return new Material(0, quantity, 0, 0);
+            case "obsidian":  return new Material(0, 0, quantity, 0);
+            case "geode":     return new Material(0, 0, 0, quantity);
+        }
+        throw new InvalidProgramException();
+    }
+
+    public static Material operator +(Material a, Material b) {
+        return new Material(
+            a.ore + b.ore,
+            a.clay + b.clay,
+            a.obsidian + b.obsidian,
+            a.geode + b.geode
+        );
+    }
+
+    public static Material operator *(Material a, int turns) {
+        return new Material(
+            a.ore * turns,
+            a.clay * turns,
+            a.obsidian * turns,
+            a.geode * turns
+        );
+    }
+
+    public static Material operator -(Material a, Material b) {
+        return new Material(
+            a.ore - b.ore,
+            a.clay - b.clay,
+            a.obsidian - b.obsidian,
+            a.geode - b.geode
+        );
+    }
+
+    public static bool operator <=(Material a, Material b) {
+        return
+            a.ore <= b.ore &&
+            a.clay <= b.clay &&
+            a.obsidian <= b.obsidian &&
+            a.geode <= b.geode;
+    }
+
+    public static bool operator >=(Material a, Material b) {
+        return
+            a.ore >= b.ore &&
+            a.clay >= b.clay &&
+            a.obsidian >= b.obsidian &&
+            a.geode >= b.geode;
+    }
+}
+
+record Robot(Material cost, Material produces);
+
+record State(int remainingTime, Material inventory, Material production);
+
+record Blueprint(Robot ore, Robot clay, Robot obsidian, Robot geode, int maxOreNeed, int maxClayNeed, int maxObsidianNeed)
+{
+    public static Blueprint FromRobots(IEnumerable<Robot> robots)
+    {
+        Robot? ore = null;
+        Robot? clay = null;
+        Robot? obsidian = null;
+        Robot? geode = null;
+
+        foreach(var robot in robots)
+        {
+            if (robot.produces.ore > 0) 
+            {
+                ore = robot;
+            } else if (robot.produces.clay > 0) 
+            {
+                clay = robot;
+            } else if (robot.produces.obsidian > 0) 
+            {
+                obsidian = robot;
+            } else
+            {
+                geode = robot;
+            }
+        }
+
+        int maxOreNeed = Math.Max(Math.Max(ore.cost.ore, clay.cost.ore), Math.Max(obsidian.cost.ore, geode.cost.ore));
+        int maxClayNeed = Math.Max(Math.Max(ore.cost.clay, clay.cost.clay), Math.Max(obsidian.cost.clay, geode.cost.clay));
+        int maxObsidianNeed = Math.Max(Math.Max(ore.cost.obsidian, clay.cost.obsidian), Math.Max(obsidian.cost.obsidian, geode.cost.obsidian));
+
+        return new Blueprint(ore!, clay!, obsidian!, geode!, maxOreNeed, maxClayNeed, maxObsidianNeed);
+    }
 }
