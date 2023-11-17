@@ -1,0 +1,31 @@
+// main: () -> int = {
+//     s: std::string = "Fred";
+//     myfile := fopen("xyzzy", "w");
+//     myfile.fprintf( "Hello %s with UFCS!\n", s.c_str() );
+//     myfile.fclose();
+// }
+
+// Example type
+Foo : type = {
+    bar: int;
+
+     operator=: (out this, n: int) = {
+        bar = n;
+    }
+
+    testMethod: (this) -> int = {
+        return this.bar;
+    }
+}
+
+main: () -> int = {
+    hello("cpp2!");
+    
+    foo: int = 1338;
+    hello(foo);
+
+    foo2: Foo = 42;
+    hello(foo2.testMethod() as std::string);
+}
+
+hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
