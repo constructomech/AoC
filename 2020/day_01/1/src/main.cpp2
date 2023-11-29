@@ -52,7 +52,14 @@ main: () -> int = {
 
     values := convertToIntArray(data);
 
-    for values do (item) {
-        std::cout << item << std::endl;
+    out: for values do (part1) {
+        for values do (part2) {
+            sum := part1 + part2;
+            if sum == 2020 {
+                product := part1 * part2;
+                std::cout << product << std::endl;
+                break out;
+            } 
+        }
     }
 }
