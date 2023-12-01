@@ -1,0 +1,76 @@
+
+// Example type
+Foo : type = {
+    bar: int;
+
+     operator=: (out this, n: int) = {
+        bar = n;
+    }
+
+    testMethod: (this) -> int = {
+        return this.bar;
+    }
+}
+
+// Example trivial function
+hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
+
+// Example of a for loop 
+// for std::views::iota(0, 10) do (i) {
+//     // Do something hopefully more expensive than expanding a std::range
+// }
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    for data do (item) {
+
+        firstNum : char = -1;
+        lastNum : char = -1;
+
+        for item do (c) {
+            if isdigit(c) {
+                if firstNum == -1 {
+                    firstNum = c;
+                }
+                lastNum = c;
+            }
+        }
+
+        lineVal : std::string = "";
+        lineVal += firstNum;
+        lineVal += lastNum;
+        val := std::stoi(lineVal);
+        result += val;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
