@@ -1,0 +1,81 @@
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    if ss& != nullptr {
+        while ss.getline(item, delim) {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+findMin: (inout curr : std::unordered_map<std::string, int>, bag : std::unordered_map<std::string, int>) = {
+    for bag do (entry) {
+        it := curr.find(entry.first);
+        if it != curr.end() {
+            currCount := it*.second;
+            if entry.second > currCount {
+                curr[entry.first] = entry.second;
+            }
+        }
+    }
+}
+
+main: () -> int = {
+    result := 0;
+
+    data := readFile("input.txt");
+
+    for data do (line) {
+
+        curr : std::unordered_map<std::string, int> = ();
+        curr["red"] = 0;
+        curr["green"] = 0;
+        curr["blue"] = 0;
+
+        parts := split(line, ':');
+
+        sets := split(parts[1], ';');
+
+        for sets do (set) {
+            set_balls : std::unordered_map<std::string, int> = ();
+
+            colors := split(set, ',');
+
+            for colors do (color) {
+                pos := color.find_last_of(' ');
+                count := std::stoi(color.substr(1, pos - 1));
+                colorName := color.substr(pos + 1);
+
+                set_balls[colorName] = count;
+            }
+
+            findMin(curr, set_balls);
+        }
+
+        power := curr["red"] * curr["blue"] * curr["green"];
+
+        result += power;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}

@@ -1,0 +1,86 @@
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    if ss& != nullptr {
+        while ss.getline(item, delim) {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+exceeds: (bag : std::unordered_map<std::string, int>, max : std::unordered_map<std::string, int>) -> bool = {
+    for bag do (entry) {
+        it := max.find(entry.first);
+        if it != max.end() {
+            maxCount := it*.second;
+            if entry.second > maxCount {
+                return true;
+            }
+        }
+        else {
+            return true;
+        }
+    }
+    return false;
+}
+
+main: () -> int = {
+    result := 0;
+
+    max : std::unordered_map<std::string, int> = ();
+    max["red"] = 12;
+    max["green"] = 13;
+    max["blue"] = 14;
+
+    data := readFile("input.txt");
+
+    game: for data do (line) {
+
+        parts := split(line, ':');
+        gameNum := std::stoi(parts[0].substr(5));
+
+        sets := split(parts[1], ';');
+
+        for sets do (set) {
+            set_balls : std::unordered_map<std::string, int> = ();
+
+            colors := split(set, ',');
+
+            for colors do (color) {
+                pos := color.find_last_of(' ');
+                count := std::stoi(color.substr(1, pos - 1));
+                colorName := color.substr(pos + 1);
+
+                set_balls[colorName] = count;
+            }
+
+            if exceeds(set_balls, max) {
+                continue game;
+            }
+        }
+
+        result += gameNum;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
