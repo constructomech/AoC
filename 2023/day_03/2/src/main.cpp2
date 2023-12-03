@@ -1,0 +1,180 @@
+
+// Example type
+PartNumData : @value type = {
+    public x: int = 0;
+    public y: int = 0;
+
+    public count: int = 0;
+    public product: int = 0;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+isSymbol: (c : char) -> bool = {
+    return c == '*';
+}
+
+isPotentialGearRatio: (lines : std::vector<std::string>, lineNum: int, start: int, end : int, inout pos : std::tuple<int, int>) -> bool = {
+    pos = std::make_tuple(0, 0);
+
+    i := start;
+    while i <= end {
+        if lineNum - 1 >= 0 {
+            // Upper left
+            if i - 1 >= 0 {
+                if isSymbol(lines[lineNum - 1][i - 1]) {
+                    pos = std::make_tuple(i - 1, lineNum - 1);
+                    return true;
+                }
+            }
+            // Up
+            if isSymbol(lines[lineNum - 1][i]) {
+                pos = std::make_tuple(i, lineNum - 1);
+                return true;
+            }
+            // Upper right
+            if i + 1 < lines[lineNum - 1].ssize() {
+                if isSymbol(lines[lineNum - 1][i + 1]) {
+                    pos = std::make_tuple(i + 1, lineNum - 1);
+                    return true;
+                }
+            }
+        }
+
+        // Left
+        if i - 1 >= 0 {
+            if isSymbol(lines[lineNum][i - 1]) {
+                pos = std::make_tuple(i - 1, lineNum);
+                return true;
+            }
+        }
+        // Right
+        if i + 1 < lines[lineNum].ssize() {
+            if isSymbol(lines[lineNum][i + 1]) {
+                pos = std::make_tuple(i + 1, lineNum);
+                return true;
+            }
+        }
+
+        if lineNum + 1 < lines.ssize() {
+            // Lower left
+            if i - 1 >= 0 {
+                if isSymbol(lines[lineNum + 1][i - 1]) {
+                    pos = std::make_tuple(i - 1, lineNum + 1);
+                    return true;
+                }
+            }
+            // Lower
+            if isSymbol(lines[lineNum + 1][i]) {
+                pos = std::make_tuple(i, lineNum + 1);
+                return true;
+            }
+            // Lower right
+            if i + 1 < lines[lineNum + 1].ssize() {
+                if isSymbol(lines[lineNum + 1][i + 1]) {
+                    pos = std::make_tuple(i + 1, lineNum + 1);
+                    return true;
+                }                
+            }
+        }
+
+        i++;
+    }
+
+    return false;
+}
+
+// NOTE: There is an error in the algorithm to not count numbers at the end of the line. Fixed by added a '.' to the end of all lines
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    std::cout << data[0];
+
+    lineNum := 0;
+
+    found : std::vector<PartNumData> = ();
+
+    while lineNum < data.ssize() {
+        line := data[lineNum];
+
+        partNum := false;
+        start := 0;
+        end := 0;
+        i := 0;
+        while (i < line.ssize()) {
+            if isdigit(line[i]) {
+
+                if partNum {
+                    end = i;
+                }
+                else {
+                    partNum = true;
+                    start = i;
+                    end = i;
+                }
+            }
+            else {
+                if partNum {
+                    pos : std::tuple<int, int> = ();
+
+                    if isPotentialGearRatio(data, lineNum, start, end, pos) {
+                        num := std::stoi(line.substr(start, end - start + 1));
+
+                        x := get<0>(pos);
+                        y := get<1>(pos);
+
+                        updated := false;
+
+                        it := found.begin();
+                        while it != found.end() {
+                            if it*.x == x && it*.y == y {
+                                it*.count++;
+                                it*.product *= num;
+                                updated = true;
+                                break;
+                            }
+                            it++;
+                        }
+
+                        if !updated {
+                            item : PartNumData = ();
+                            item.x = x;
+                            item.y = y;
+                            item.count = 1;
+                            item.product = num;                            
+
+                            found.push_back(item);
+                        }
+                    }
+                }
+                partNum = false;
+            }
+ 
+            i++;
+        }
+
+        lineNum++;
+    }
+
+    for found do (item) {
+        if item.count == 2 {
+            result += item.product; 
+        }
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}

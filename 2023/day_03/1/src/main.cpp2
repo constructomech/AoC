@@ -1,0 +1,126 @@
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+isSymbol: (c : char) -> bool = {
+    return !isdigit(c) && c != '.';
+}
+
+isPartNum: (lines : std::vector<std::string>, lineNum: int, start: int, end : int) -> bool = {
+
+    i := start;
+    while i <= end {
+        if lineNum - 1 >= 0 {
+            // Upper left
+            if i - 1 >= 0 {
+                if isSymbol(lines[lineNum - 1][i - 1]) {
+                    return true;
+                }
+            }
+            // Up
+            if isSymbol(lines[lineNum - 1][i]) {
+                return true;
+            }
+            // Upper right
+            if i + 1 < lines[lineNum - 1].ssize() {
+                if isSymbol(lines[lineNum - 1][i + 1]) {
+                    return true;
+                }
+            }
+        }
+
+        // Left
+        if i - 1 >= 0 {
+            if isSymbol(lines[lineNum][i - 1]) {
+                return true;
+            }
+        }
+        // Right
+        if i + 1 < lines[lineNum].ssize() {
+            if isSymbol(lines[lineNum][i + 1]) {
+                return true;
+            }
+        }
+
+        if lineNum + 1 < lines.ssize() {
+            // Lower left
+            if i - 1 >= 0 {
+                if isSymbol(lines[lineNum + 1][i - 1]) {
+                    return true;
+                }
+            }
+            // Lower
+            if isSymbol(lines[lineNum + 1][i]) {
+                return true;
+            }
+            // Lower right
+            if i + 1 < lines[lineNum + 1].ssize() {
+                if isSymbol(lines[lineNum + 1][i + 1]) {
+                    return true;
+                }                
+            }
+        }
+
+        i++;
+    }
+    return false;
+}
+
+// NOTE: There is an error in the algorithm to not count numbers at the end of the line. Fixed by added a '.' to the end of all lines
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    std::cout << data[0];
+
+    lineNum := 0;
+
+    while lineNum < data.ssize() {
+        line := data[lineNum];
+
+        partNum := false;
+        start := 0;
+        end := 0;
+        i := 0;
+        while (i < line.ssize()) {
+            if isdigit(line[i]) {
+
+                if partNum {
+                    end = i;
+                }
+                else {
+                    partNum = true;
+                    start = i;
+                    end = i;
+                }
+            }
+            else {
+                if partNum {
+                    if isPartNum(data, lineNum, start, end) {
+                        num := std::stoi(line.substr(start, end - start + 1));
+                        result += num;
+                    }
+                }
+                partNum = false;
+            }
+ 
+            i++;
+        }
+
+        lineNum++;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
