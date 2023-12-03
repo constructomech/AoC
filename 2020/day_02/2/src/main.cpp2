@@ -1,0 +1,114 @@
+
+// Example type
+Foo : type = {
+    bar: int;
+
+     operator=: (out this, n: int) = {
+        bar = n;
+    }
+
+    testMethod: (this) -> int = {
+        return this.bar;
+    }
+}
+
+// Example trivial function
+hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
+
+// Example of a for loop 
+// for std::views::iota(0, 10) do (i) {
+//     // Do something hopefully more expensive than expanding a std::range
+// }
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+// split: (s : std::string, delim : char) -> std::vector<std::string> = {
+//     result : std::vector<std::string> = ();
+//     ss : std::stringstream = (s);
+//     item : std::string = "";
+
+//     if ss& != nullptr {
+//         while ss.getline(item, delim) {
+//             result.push_back(item);
+//         }
+//     }
+
+//     return result;
+// }
+
+split: (s : std::string_view, delim : char) -> std::vector<std::string_view> = {
+    result : std::vector<std::string_view> = ();
+
+    p := s.begin();
+    while p != s.end() {
+        q := p;
+        p = std::find(p, s.end(), delim);
+        result.emplace_back(q, p);
+        if (p == s.end()) {
+            break;
+        }
+        p++;
+    }
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+svtoi : (sv : std::string_view) -> int = {
+    s : std::string = (sv);
+    return std::stoi(s);
+}
+
+checkPasswordValid: (pos1: int, pos2: int, targetChar : char, password : std::string_view) -> bool = {
+    return (password[pos1 - 1] != password[pos2 - 1]) && (password[pos1 - 1] == targetChar || password[pos2 - 1] == targetChar);
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    for data do (line) {
+        parts1 := split(line, ':');
+        password := parts1[1].substr(1);
+
+        parts2 := split(parts1[0], ' ');
+
+        targetChar := parts2[1][0];
+
+        parts3 := split(parts2[0], '-');
+        pos1 := svtoi(parts3[0]);
+        pos2 := svtoi(parts3[1]);
+
+        std::cout << pos1 << '-' << pos2 << " " << targetChar << ": " << password << std::endl;
+
+        if checkPasswordValid(pos1, pos2, targetChar, password)
+        {
+            result++;
+        }
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}

@@ -1,0 +1,101 @@
+
+// Example type
+Foo : type = {
+    bar: int;
+
+     operator=: (out this, n: int) = {
+        bar = n;
+    }
+
+    testMethod: (this) -> int = {
+        return this.bar;
+    }
+}
+
+// Example trivial function
+hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
+
+// Example of a for loop 
+// for std::views::iota(0, 10) do (i) {
+//     // Do something hopefully more expensive than expanding a std::range
+// }
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    if ss& != nullptr {
+        while ss.getline(item, delim) {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+checkPasswordValid: (minCount: int, maxCount: int, targetChar : char, password : std::string) -> bool = {
+    count : int = 0;
+
+    for password do (c) {
+        if (c == targetChar) {
+            count++;
+        }
+    }
+
+    return count >= minCount && count <= maxCount;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    for data do (line) {
+        parts1 := split(line, ':');
+        password := parts1[1].substr(1);
+
+        parts2 := split(parts1[0], ' ');
+
+        targetChar := parts2[1][0];
+
+        parts3 := split(parts2[0], '-');
+        minCount := std::stoi(parts3[0]);
+        maxCount := std::stoi(parts3[1]);
+
+        std::cout << minCount << '-' << maxCount << " " << targetChar << ": " << password << std::endl;
+
+        if checkPasswordValid(minCount, maxCount, targetChar, password)
+        {
+            result++;
+        }
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
