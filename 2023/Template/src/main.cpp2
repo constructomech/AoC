@@ -32,6 +32,20 @@ convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
     return result;
 }
 
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    if ss& != nullptr {
+        while ss.getline(item, delim) {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
 readFile: (path: std::string) -> std::vector<std::string> = {
     data : std::vector<std::string> = ();
     input : std::ifstream = (path);
@@ -49,7 +63,7 @@ readFile: (path: std::string) -> std::vector<std::string> = {
 
 main: () -> int = {
     result := 0;
-    data := readFile("input.txt");
+    //data := readFile("input.txt");
 
     // Implement 
 
