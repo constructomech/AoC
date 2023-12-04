@@ -85,9 +85,7 @@ main: () -> int = {
 
         j := i + 1;
         while j <= i + matchingNums && j < cards.ssize() {
-            card := cards[j];
-            card.count += cards[i].count;
-            cards[j] = card;
+            cards[j].count += cards[i].count;
 
             j++;
         }
@@ -100,7 +98,6 @@ main: () -> int = {
     for cards do (card) {
         result += card.count;
     }
-
 
     std::cout << "Result: " << result << std::endl;
 }
