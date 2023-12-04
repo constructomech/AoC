@@ -1,0 +1,79 @@
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        if item != "" {
+            val := std::stoi(item);
+            result.push_back(val);
+        }
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    if ss& != nullptr {
+        while ss.getline(item, delim) {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    for data do (line) {
+        parts1 := split(line, ':');
+        parts2 := split(parts1[1], '|');
+
+        winningNumStrs := split(parts2[0], ' ');
+        ourNumStrs := split(parts2[1], ' ');
+
+        winningNums := convertToIntArray(winningNumStrs);
+        ourNums := convertToIntArray(ourNumStrs);
+
+        cardScore := 0;
+
+        for ourNums do (ourNum) {
+            if std::find(winningNums.begin(), winningNums.end(), ourNum) != winningNums.end() {                
+                if cardScore == 0 {
+                    cardScore = 1;
+                }
+                else
+                {
+                    cardScore *= 2;
+                }
+            }
+        }
+
+        std::cout << ourNums.ssize() << " " << winningNums.ssize() << " Score: " << cardScore << std::endl;
+
+        result += cardScore;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}

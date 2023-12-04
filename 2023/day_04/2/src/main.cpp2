@@ -1,0 +1,106 @@
+
+// Example type
+Card : @value type = {
+    public count : int = 1;
+
+    public winningNums : std::vector<int> = ();
+
+    public ourNums : std::vector<int> = ();
+}
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        if item != "" {
+            val := std::stoi(item);
+            result.push_back(val);
+        }
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    if ss& != nullptr {
+        while ss.getline(item, delim) {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    cards : std::vector<Card> = ();
+
+    for data do (line) {
+
+        card : Card = ();
+
+        parts1 := split(line, ':');
+        parts2 := split(parts1[1], '|');
+
+        winningNumStrs := split(parts2[0], ' ');
+        ourNumStrs := split(parts2[1], ' ');
+
+        card.winningNums = convertToIntArray(winningNumStrs);
+        card.ourNums = convertToIntArray(ourNumStrs);
+
+        cards.push_back(card);
+    }
+
+    i := 0;
+    while i < cards.ssize() {
+        matchingNums := 0;
+
+        for cards[i].ourNums do (ourNum) {
+            if std::find(cards[i].winningNums.begin(), cards[i].winningNums.end(), ourNum) != cards[i].winningNums.end() {      
+                matchingNums++;
+            }
+        }
+
+        j := i + 1;
+        while j <= i + matchingNums && j < cards.ssize() {
+            card := cards[j];
+            card.count += cards[i].count;
+            cards[j] = card;
+
+            j++;
+        }
+
+        std::cout << cards[i].ourNums.ssize() << " " << cards[i].winningNums.ssize() << " Score: " << matchingNums << std::endl;
+
+        i++;
+    }
+
+    for cards do (card) {
+        result += card.count;
+    }
+
+
+    std::cout << "Result: " << result << std::endl;
+}
