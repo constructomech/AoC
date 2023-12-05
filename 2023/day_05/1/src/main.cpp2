@@ -1,0 +1,109 @@
+
+// Example type
+Mapping : @value type = {
+    public sourceStart: i64 = 0;
+    public destinationStart : i64 = 0;
+    public rangeSize : i64 = 0;
+}
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<i64> = {
+    result : std::vector<i64> = ();
+
+    for data do (item)
+    {
+        val := std::stoll(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    if ss& != nullptr {
+        while ss.getline(item, delim) {
+            result.push_back(item);
+        }
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+// seed -> soil -> fertilizer 
+main: () -> int = {
+    rawData := readFile("input.txt");
+
+    seedsLine := rawData.front();
+    seedsParts := split(seedsLine, ':');
+    seedsStrs := split(seedsParts[1].substr(1), ' ');
+    seeds := convertToIntArray(seedsStrs);
+
+    rawData.erase(rawData.begin(), rawData.begin() + 2);
+
+    std::cout << seeds.size() << std::endl;
+
+    mappings : std::vector<std::vector<Mapping>> = ();
+    mapSource := "";
+
+    for rawData do (line) {
+        if line.ssize() != 0 {
+            hyphenIdx := line.find('-');
+            if hyphenIdx != std::string::npos {
+                mapSource := line.substr(0, hyphenIdx);
+                list : std::vector<Mapping> = ();
+                std::cout << "Mapping: " << mapSource << std::endl;
+                mappings.push_back(list);
+            }
+            else {
+                parts := split(line, ' ');
+                map : Mapping = ();
+                map.destinationStart = std::stoll(parts[0]);
+                map.sourceStart = std::stoll(parts[1]);
+                map.rangeSize = std::stoll(parts[2]);
+                mappings.back().push_back(map);
+            }
+        }
+    }
+
+    lowest := std::numeric_limits<i64>::max();
+
+    for seeds do (seed) {
+        
+        current := seed;
+
+        for mappings do (mapping) {
+
+            for mapping do (map) {
+                
+                if current >= map.sourceStart && current - map.sourceStart < map.rangeSize {
+                    current = current - map.sourceStart + map.destinationStart;
+                    break;
+                }
+            }
+
+            std::cout << "Current: " << current << std::endl;
+        }
+
+        lowest = std::min(lowest, current);
+    }
+
+    std::cout << "Result: " << lowest << std::endl;
+}
