@@ -37,10 +37,9 @@ split: (s : std::string, delim : char) -> std::vector<std::string> = {
     ss : std::stringstream = (s);
     item : std::string = "";
 
-    if ss& != nullptr {
-        while ss.getline(item, delim) {
-            result.push_back(item);
-        }
+    assert (ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
     }
 
     return result;
