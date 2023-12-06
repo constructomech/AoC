@@ -101,45 +101,44 @@ main: () -> int = {
             ranges.pop_back();
 
             for mapping do (map) {
-
+        
+                handleRange(range, map, )
             }
         }
-            
-        ranges.clear();
+
+        ranges.insert(0, nextRanges.begin(), nextRanges.end());
     }
 
+//WIP: Aborted when brute force solution yielded the answer. Handling the inputs as ranges would definately work better... oh well. 
 
-//tada
+    // seed := seeds[i];
+    // seedMax := seed + seeds[i + 1];
 
-        seed := seeds[i];
-        seedMax := seed + seeds[i + 1];
+    // assert(seedMax != 0);
 
-        assert(seedMax != 0);
+    // while seed < seedMax {
 
-        while seed < seedMax {
+    //     current := seed;
 
-            current := seed;
+    //     for mappings do (mapping) {
 
-            for mappings do (mapping) {
+    //         for mapping do (map) {
+                
+    //             if current >= map.sourceStart && current - map.sourceStart < map.rangeSize {
+    //                 current = current - map.sourceStart + map.destinationStart;
+    //                 break;
+    //             }
+    //         }
 
-                for mapping do (map) {
-                    
-                    if current >= map.sourceStart && current - map.sourceStart < map.rangeSize {
-                        current = current - map.sourceStart + map.destinationStart;
-                        break;
-                    }
-                }
+    //         //std::cout << "Current: " << current << std::endl;
+    //     }
 
-                //std::cout << "Current: " << current << std::endl;
-            }
+    //     lowest = std::min(lowest, current);
 
-            lowest = std::min(lowest, current);
+    //     seed++;
+    // }                
 
-            seed++;
-        }                
-
-        std::cout << '.';
-
+    // std::cout << '.';
 
 
     std::cout << "Result: " << lowest << std::endl;
