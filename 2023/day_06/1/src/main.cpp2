@@ -1,0 +1,72 @@
+
+// Example type
+Race : @value type = {
+    public time : int = 0;
+    public distance : int = 0;
+}
+
+main: () -> int = {
+    result := 1;
+
+    // Sample Data
+    // s1 : Race = ();
+    // s1.time = 7;
+    // s1.distance = 9;
+
+    // s2 : Race = ();
+    // s2.time = 15;
+    // s2.distance = 40;
+
+    // s3 : Race = ();
+    // s3.time = 30;
+    // s3.distance = 200;
+
+    // races : std::vector<Race> = ();
+    // races.push_back(s1);
+    // races.push_back(s2);
+    // races.push_back(s3);
+
+    s1 : Race = ();
+    s1.time = 55;
+    s1.distance = 246;
+
+    s2 : Race = ();
+    s2.time = 82;
+    s2.distance = 1441;
+
+    s3 : Race = ();
+    s3.time = 64;
+    s3.distance = 1012;
+
+    s4 : Race = ();
+    s4.time = 90;
+    s4.distance = 1111;
+
+    races : std::vector<Race> = ();
+    races.push_back(s1);
+    races.push_back(s2);
+    races.push_back(s3);
+    races.push_back(s4);
+
+    for races do (race) {
+
+        velocity := 1;
+        chargeTime := 1;
+        waysToWin := 0;
+
+        while (chargeTime < race.time) {
+
+            distance := (race.time - chargeTime) * velocity;
+            if distance > race.distance {
+                waysToWin++;
+            }
+
+            velocity++;
+            chargeTime++;
+        }
+
+        result *= waysToWin;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
