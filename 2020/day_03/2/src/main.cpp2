@@ -1,0 +1,52 @@
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+countTrees: (data: std::vector<std::string>, slopeDown: int, slopeRight: int) -> int = {
+    treeCount := 0;
+
+    y := 0;
+    x := 0;
+    while y < data.ssize() {
+
+        checkX := x % data[y].ssize();
+        
+        if data[y][checkX] == '#' {
+            treeCount++;
+        }
+        
+        x += slopeRight;
+        y += slopeDown;
+    }
+
+    return treeCount;
+}
+
+main: () -> int = {
+    result := 1;
+    data := readFile("input.txt");
+    
+    for data do (line) {
+        std::cout << line << std::endl;
+    }
+
+    result *= countTrees(data, 1, 1);
+    result *= countTrees(data, 1, 3);
+    result *= countTrees(data, 1, 5);
+    result *= countTrees(data, 1, 7);
+    result *= countTrees(data, 2, 1);
+
+    std::cout << "Result: " << result << std::endl;
+}
