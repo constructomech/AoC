@@ -1,0 +1,170 @@
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert (ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+createHistogram: (hand: std::string) -> std::unordered_map<char, int> = {
+    result : std::unordered_map<char, int> = ();
+    for hand do (card) {
+        if result.find(card) == result.end() {
+            result[card] = 0;
+        }
+        result[card]++;
+    }
+    return result;
+}
+
+rankHand: (hand: std::string) -> int = {
+    histogram := createHistogram(hand);
+
+    hasFive := false;
+    hasFour := false;
+    hasThree := false;
+    pairs := 0;
+    jokers := 0;
+
+    it := histogram.find('J');
+    if it != histogram.end() {
+        jokers = it*.second;
+        histogram.erase(it);
+    }
+
+    for histogram do (entry) {
+        if (entry.second == 5) {
+            hasFive = true;
+        }
+        else if (entry.second == 4) {
+            hasFour = true;
+        }
+        else if (entry.second == 3) {
+            hasThree = true;
+        }
+        else if (entry.second == 2) {
+            pairs++;
+        }
+    }
+
+    if hasFive || hasFour && jokers == 1 || hasThree && jokers == 2 || pairs == 1 && jokers == 3 || jokers == 4 || jokers == 5 {
+        return 7; // 5 of a kind
+    }
+    else if hasFour || hasThree && jokers == 1 || pairs == 1 && jokers == 2 || jokers == 3 {
+        return 6; // 4 of a kind        
+    }
+    else if hasThree && pairs == 1 || pairs == 2 && jokers == 1 || pairs == 1 && jokers == 2 {
+        return 5; // full house
+    }
+    else if hasThree || pairs == 1 && jokers == 1 || jokers == 2 {
+        return 4; // 3 of a kind
+    }
+    else if pairs == 2 || pairs == 1 && jokers == 1 {
+        return 3; // 2 pair
+    }
+    else if pairs == 1 || jokers == 1 {
+        return 2; // pair
+    }
+    return 1; // high card
+}
+
+rankCard: (card : char) -> int = {
+    if '2' <= card <= '9' {
+        return card - '0';
+    }
+    else if card == 'T' {
+        return 10;
+    }
+    else if card == 'J' {
+        return 1; // J is wild, lower than a 2
+    }
+    else if card == 'Q' {
+        return 12;
+    }
+    else if card == 'K' {
+        return 13;
+    }
+    // 'A'
+    return 14;
+}
+
+handWins: (lhs : std::string, rhs : std::string) -> bool = {
+    lhsRank := rankHand(lhs);
+    rhsRank := rankHand(rhs);
+
+    if lhsRank > rhsRank {
+        return true;
+    }
+    else if lhsRank == rhsRank {
+        i := 0; 
+        while i < lhs.ssize() {
+            lhsCardRank := rankCard(lhs[i]);
+            rhsCardRank := rankCard(rhs[i]); 
+            if lhsCardRank > rhsCardRank {
+                return true;
+            }
+            else if lhsCardRank < rhsCardRank {
+                break;
+            }
+            i++;
+        }
+    }
+    return false;
+}
+
+insertByRank: (inout hands : std::vector<std::tuple<std::string, int>>, hand : std::string, bid : int) = {
+    it := hands.begin();
+    while it != hands.end() {
+        if handWins(hand, get<0>(it*)) {
+            break;
+        }
+        it++;
+    }
+    hands.insert(it, std::make_tuple(hand, bid));
+}
+
+main: () -> int = {
+    result := 0;
+    hands : std::vector<std::tuple<std::string, int>> = ();
+
+    data := readFile("input.txt");
+
+    for data do (line) {
+        parts := split(line, ' ');
+        hand := parts[0];
+        bid := std::stoi(parts[1]);
+
+        hands.insertByRank(hand, bid);
+    }
+
+    i := 0;
+    while i < hands.ssize() {
+        rank := hands.ssize() - i;
+        bid := get<1>(hands[i]);
+        result += rank * bid;
+        i++;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
