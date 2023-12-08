@@ -1,0 +1,99 @@
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert (ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+atEndState: (current : std::vector<std::string>) -> bool = {
+
+    for current do (node) {
+        if node[node.ssize() - 1] != 'Z' {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    instructions := data[0];
+    data.erase(data.begin(), data.begin() + 2);
+
+    std::cout << instructions << std::endl;
+
+    graph : std::unordered_map<std::string, std::tuple<std::string, std::string>> = ();
+
+    currentNodes : std::vector<std::string> = ();
+
+    // Implement 
+    for data do (line) {
+        //AAA = (BBB, CCC)
+
+        parts1 := split(line, '=');
+        nodeName := parts1[0].substr(0, parts1[0].ssize() - 1);
+        
+        parts2 := split(parts1[1], ',');
+        leftNode := parts2[0].substr(2);
+        rightNode := parts2[1].substr(1, parts2[1].ssize() - 2);
+
+        std::cout << nodeName << " -> (" << leftNode << ", " << rightNode << ")" << std::endl;
+
+        graph[nodeName] = std::make_tuple(leftNode, rightNode);
+        if nodeName[nodeName.ssize() - 1] == 'A' {
+            currentNodes.push_back(nodeName);
+        }
+    }
+
+    i := 0;
+    do {
+        instruction := instructions[i % instructions.ssize()];
+
+        j := 0;
+        while j < currentNodes.ssize() {
+
+            directions := graph[currentNodes[j]];
+            
+            if instruction == 'L' {
+                currentNodes[j] = get<0>(directions);
+            }
+            else {
+                currentNodes[j] = get<1>(directions);
+            }
+
+            j++;
+        }
+
+        i++;
+
+    } while !atEndState(currentNodes);
+
+    result = i;
+
+    std::cout << "Result: " << result << std::endl;
+}
