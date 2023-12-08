@@ -39,7 +39,6 @@ atEndState: (current : std::vector<std::string>) -> bool = {
 }
 
 main: () -> int = {
-    result := 0;
     data := readFile("input.txt");
 
     instructions := data[0];
@@ -70,9 +69,9 @@ main: () -> int = {
         }
     }
 
-    i := 0;
+    result : i64 = 0;
     do {
-        instruction := instructions[i % instructions.ssize()];
+        instruction := instructions[result % instructions.ssize()];
 
         j := 0;
         while j < currentNodes.ssize() {
@@ -89,11 +88,9 @@ main: () -> int = {
             j++;
         }
 
-        i++;
+        result++;
 
     } while !atEndState(currentNodes);
-
-    result = i;
 
     std::cout << "Result: " << result << std::endl;
 }
