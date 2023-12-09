@@ -1,0 +1,97 @@
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert (ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+allZeros: (nums : std::vector<int>) -> int = {
+    for nums do (num) {
+        if num != 0 {
+            return false;
+        }
+    }
+    return true;
+}
+
+computeDiff: (chain : std::vector<int>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+    i := 1;
+    while i < chain.ssize() {
+        diff := chain[i] - chain[i - 1];
+        result.push_back(diff);
+        i++;
+    }
+    return result;
+}
+
+computeNext: (nums : std::vector<int>) -> int = {
+    chains : std::vector<std::vector<int>> = ();
+
+    chains.push_back(nums);
+    
+    while !allZeros(chains[chains.ssize() - 1]) {
+        chain := chains[chains.ssize() - 1];
+
+        chains.push_back(computeDiff(chain));
+    }
+
+    addend := 0;
+    walkBack := chains.ssize() - 1;
+    while walkBack >= 0 {
+        chain := chains[walkBack];
+        addend += chain[chain.ssize() - 1]; 
+        walkBack--;       
+    }
+
+    return addend;
+}
+
+main: () -> int = {
+    result : i64 = 0;
+    data := readFile("input.txt");
+
+    for data do (line) {
+        parts := line.split(' ');
+        nums := convertToIntArray(parts);
+
+        nextVal := computeNext(nums);
+        result += nextVal;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
