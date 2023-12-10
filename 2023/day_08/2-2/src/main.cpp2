@@ -81,26 +81,11 @@ main: () -> int = {
         vals.push_back(i);
     }
 
-    gcf : i64 = 0;
-    test : i64 = 2;
-    out: while true {
-        for vals do (val) {
-            if test > val / 2 {
-                break out;
-            }
-            if val % test != 0 {
-                test++;
-                continue out;
-            }
-        }
-        gcf = test;
-        test++;
-    }
-
-    result : i64 = gcf;
-    for vals do (val) {
-        temp := val / gcf;
-        result *= temp;
+    result : i64 = vals[0];
+    i := 1;
+    while i < vals.ssize() {
+        result = std::lcm(result, vals[i]);
+        i++;
     }
 
     std::cout << "Result: " << result << std::endl;
