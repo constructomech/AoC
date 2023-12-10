@@ -1,0 +1,181 @@
+
+// Example type
+Pos : @value type = {
+    public x: int = 0;
+    public y: int = 0;
+}
+
+Direction : @flag_enum type = {
+    None := 0;
+    Up;
+    Down;
+    Left;
+    Right;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+pipeConnects: (pipe : char) -> Direction = {
+
+    if pipe == '|' {
+        return Direction::Up | Direction::Down;
+    } else if pipe == '-' {
+        return Direction::Left | Direction::Right;
+    } else if pipe == '-' {
+        return Direction::Left | Direction::Right;
+    } else if pipe == 'L' {
+        return Direction::Up | Direction::Right;
+    } else if pipe == 'J' {
+        return Direction::Up | Direction::Left;
+    } else if pipe == '7' {
+        return Direction::Left | Direction::Down;
+    } else if pipe == 'F' {
+        return Direction::Right | Direction::Down;
+    }
+    return Direction::None;
+}
+
+findStart: (map : std::vector<std::string>) -> Pos = {
+    result : Pos = ();
+    j := 0;
+    while j < map.ssize() {
+        i := 0;
+        while i < map[j].ssize() {
+            if map[j][i] == 'S' {
+                result.x = i;
+                result.y = j;
+            }
+            i++;
+        }
+        j++;
+    }
+    return result;
+}
+
+getStartAdjacent : (start : Pos, map : std::vector<std::string>) -> std::vector<Pos> = {
+    result : std::vector<Pos> = ();
+
+    // Up
+    connections := pipeConnects(map[start.y - 1][start.x]);
+    if (connections & Direction::Down) == Direction::Down {
+        pos : Pos = ();
+        pos.x = start.x;
+        pos.y = start.y - 1;
+        result.push_back(pos);
+    }
+
+    // Left
+    connections = pipeConnects(map[start.y][start.x - 1]);
+    if (connections & Direction::Right) == Direction::Right {
+        pos : Pos = ();
+        pos.x = start.x - 1;
+        pos.y = start.y;
+        result.push_back(pos);
+    }
+
+    // Right
+    connections = pipeConnects(map[start.y][start.x + 1]);
+    if (connections & Direction::Left) == Direction::Left {
+        pos : Pos = ();
+        pos.x = start.x + 1;
+        pos.y = start.y;
+        result.push_back(pos);
+    }
+    
+    // Down
+    connections = pipeConnects(map[start.y + 1][start.x]);
+    if (connections & Direction::Up) == Direction::Up {
+        pos : Pos = ();
+        pos.x = start.x;
+        pos.y = start.y + 1;
+        result.push_back(pos);
+    }
+
+    return result;
+}
+
+getConnections: (targetPos : Pos, connections : Direction) -> std::vector<Pos> = {
+    result : std::vector<Pos> = ();
+
+    if (connections & Direction::Down) == Direction::Down {
+        pos : Pos = ();
+        pos.x = targetPos.x;
+        pos.y = targetPos.y + 1;
+        result.push_back(pos);
+    }
+    if (connections & Direction::Right) == Direction::Right {
+        pos : Pos = ();
+        pos.x = targetPos.x + 1;
+        pos.y = targetPos.y;
+        result.push_back(pos);
+    }
+    if (connections & Direction::Left) == Direction::Left {
+        pos : Pos = ();
+        pos.x = targetPos.x - 1;
+        pos.y = targetPos.y;
+        result.push_back(pos);
+    }
+    if (connections & Direction::Up) == Direction::Up {
+        pos : Pos = ();
+        pos.x = targetPos.x;
+        pos.y = targetPos.y - 1;
+        result.push_back(pos);
+    }
+
+    return result;
+}
+
+getNextPos: (priorPos : Pos, currentPos : Pos, connections : Direction) -> Pos = {
+    result : Pos = ();
+
+    positions := getConnections(currentPos, connections);
+    for positions do (pos) {
+        if pos != priorPos {
+            result = pos;
+            break;
+        }
+    }
+
+    return result;
+}
+
+main: () -> int = {
+    result := 0;
+    map := readFile("input.txt");
+    path : std::vector<std::tuple<Pos, Pos>> = ();
+
+    start := findStart(map);
+    path.push_back(std::make_tuple(start, start));
+
+    pos := getStartAdjacent(start, map);
+    path.push_back(std::make_tuple(pos[0], pos[1]));
+
+    while std::get<0>(path.back()) != std::get<1>(path.back()) {
+        one := std::get<0>(path.back());
+        oneDirs := pipeConnects(map[one.y][one.x]);
+        oneNext := getNextPos(std::get<0>(path[path.ssize() - 2]), one, oneDirs);
+
+        two := std::get<1>(path.back());        
+        twoDirs := pipeConnects(map[two.y][two.x]);
+        twoNext := getNextPos(std::get<1>(path[path.ssize() - 2]), two, twoDirs);
+
+        path.push_back(std::make_tuple(oneNext, twoNext));
+    }
+
+    result = path.ssize() - 1;
+
+    std::cout << "Result: " << result << std::endl;
+}
