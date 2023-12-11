@@ -1,0 +1,141 @@
+Pos : @value type = {
+    public x: int = 0;
+    public y: int = 0;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+expandUniverse: (inout data : std::vector<std::string>) = {
+    i := data[0].ssize() - 1;
+    while i >= 0 {
+        expandAtColumn := true;
+        j := 0;
+        while j < data.ssize() {
+            if data[j][i] != '.' {
+                expandAtColumn = false;
+                break;
+            }
+            j++;
+        }
+        
+        if expandAtColumn {
+            j = 0;
+            while j < data.ssize() {
+                line := data[j];
+                line = line.substr(0, i) + '.' + line.substr(i);
+                data[j] = line;
+                j++;
+            }
+        }
+
+        i--;
+    }
+
+    j := data.ssize() - 1;
+    while j >= 0 {
+        expandAtRow := true;
+        i := 0;
+        while i < data[j].ssize() {
+            if data[j][i] != '.' {
+                expandAtRow = false;
+                break;
+            }
+            i++;
+        }
+        
+        if expandAtRow {
+            data.emplace_back();
+            j2 := data.ssize() - 2;
+            while j2 >= j {
+                data[j2 + 1] = data[j2];
+                j2--;
+            }
+            data[j] = data[j + 1];
+        }
+
+        j--;
+    }
+}
+
+findGalaxies: (data : std::vector<std::string>) -> std::vector<Pos> = {
+    result : std::vector<Pos> = ();
+
+    j := 0;
+    while j < data.ssize() {
+        
+        i := 0;
+        while i < data[j].ssize() {
+
+            if data[j][i] == '#' {
+                pos : Pos = ();
+                pos.x = i;
+                pos.y = j;
+                result.push_back(pos);
+            }
+            i++;
+        }
+
+        j++;
+    }
+
+    return result;
+}
+
+findUniquePairs: (galaxies : std::vector<Pos>) -> std::vector<std::tuple<Pos, Pos>> = {
+    result : std::vector<std::tuple<Pos, Pos>> = ();
+    i := 0;
+    while i < galaxies.ssize() {
+
+        j := 0;
+        while j < galaxies.ssize() {
+            if i < j {
+                result.push_back(std::make_tuple(galaxies[i], galaxies[j]));
+            }
+            j++;
+        }
+
+        i++;
+    }
+    return result;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    expandUniverse(data);
+
+    for data do (line) {
+        for line do (c) {
+            std::cout << c;
+        }
+        std::cout << std::endl;
+    }
+
+    galaxies := findGalaxies(data);
+
+    galaxyPairs := findUniquePairs(galaxies);
+
+    for galaxyPairs do (galaxyPair) {
+        pos1 := std::get<0>(galaxyPair);
+        pos2 := std::get<1>(galaxyPair);
+
+        dist := abs(pos2.y - pos1.y) + abs(pos2.x - pos1.x);
+        result += dist;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
