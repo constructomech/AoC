@@ -63,11 +63,11 @@ combinations: (inout cache : std::map<std::tuple<int, int>, i64>, input : std::s
         result += combinations(cache, input, inputIndex + 1, pattern, patternIndex);
     }
 
-    // RECURSE 2: Place #'s for the size in the pattern 
+    // RECURSE 2: Place #'s for the size of the current pattern
     matchesPattern := true;
     i := 0;
     while i < pattern[patternIndex] {
-        if inputIndex + i >= input.ssize() || input[inputIndex + i] == '.' {   // We can't add a # here since there is a . already.
+        if inputIndex + i >= input.ssize() || input[inputIndex + i] == '.' {   // We can't add a # here since there is a . already (or EOL).
             matchesPattern = false;
         }
         i++;
@@ -95,8 +95,6 @@ main: () -> int = {
         cache : std::map<std::tuple<int, int>, i64> = ();
 
         parts := line.split(' ');
-        //input := parts[0];
-        //patternStrs := parts[1];
         input := parts[0] + '?' + parts[0] + '?' + parts[0] + '?' + parts[0] + '?' + parts[0];
         patternStrs := parts[1] + ',' + parts[1] + ',' + parts[1] + ',' + parts[1] + ',' + parts[1]; 
         pattern := convertToIntArray(patternStrs.split(','));        
