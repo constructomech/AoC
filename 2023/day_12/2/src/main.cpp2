@@ -1,0 +1,176 @@
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert (ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+meets: (input : std::string, pattern : std::vector<int>) -> bool = {
+    groupNum := 0;
+    groupCount := 0;
+
+    i := input.find('#');
+    while i < input.size() {
+
+        if input[i] == '#' {
+            groupCount++;
+        }
+
+        if groupCount > 0 && (input[i] == '.' || i == input.size() - 1) {
+            if groupNum >= pattern.ssize() || pattern[groupNum] != groupCount {
+                return false;
+            }
+            groupNum++;
+            groupCount = 0;
+        }
+
+        i++;
+    }
+
+    return groupNum == pattern.ssize();
+}
+
+meetsPartial: (input : std::string, pattern : std::vector<int>) -> bool = {
+    groupNum := 0;
+    groupCount := 0;
+
+    i := input.find('#');
+    j := input.find('?');
+
+    while i <= j {
+
+        if input[i] == '#' {
+            groupCount++;
+        }
+
+        if groupCount > 0 && input[i] != '#' {
+            if groupNum >= pattern.ssize() {
+                return false;
+            }
+            
+            if groupCount == pattern[groupNum] && groupNum == pattern.ssize() - 1 {
+                moreNums := (input.find('#', i) != std::string::npos); // We fully matched the pattern already, there shouldn't be any more # signs.
+                // if moreNums {
+                //     std::cout << "Terminating " << input << std::endl;
+                // }
+                return !moreNums;
+            }
+
+            if i == j { // last group
+                if groupCount > pattern[groupNum] {
+                    return false;
+                }
+            } else {                
+                if pattern[groupNum] != groupCount {
+                    return false;
+                }
+                groupCount = 0;
+                groupNum++;
+            }
+        }
+
+        i++;
+    }
+
+    // Pattern matches so far.  Do we have enough chars left to possibly represent the remainder of the pattern?
+    needAtLeast := 0u;
+    k := groupNum;
+    while k < pattern.ssize() {
+        needAtLeast += pattern[k];  // pattern size
+        needAtLeast++;              // space after pattern
+        k++;
+    }
+    needAtLeast--;
+    needAtLeast -= groupCount;      // Portion of last group we've seen
+
+    return (input.size() - j >= needAtLeast);
+}
+
+combinations: (input : std::string, pattern : std::vector<int>) -> int = {
+    result := 0;
+
+    i := input.find('?');    
+    if i != std::string::npos {
+
+        if !meetsPartial(input, pattern) {
+            return 0;
+        }
+
+        inputA := input;
+        inputA[i] = '.';
+        result += combinations(inputA, pattern);
+
+        inputB := input;
+        inputB[i] = '#';
+        result += combinations(inputB, pattern);
+    }
+    else {
+        //std::cout << "Testing [" << input << "]";
+        if meets(input, pattern) {
+            //std::cout << " matches";
+            result++;
+        }
+        //std::cout << std::endl;
+    }
+
+    return result;
+}
+
+main: () -> int = {
+    result : i64 = 0;
+
+    // pattern : std::vector<int> = (3, 2, 1);
+    // input := ".###..##.#.?";
+    // result += meetsPartial(input, pattern);
+
+    data := readFile("input.txt");
+
+    for data do (line) {
+        parts := line.split(' ');
+        // input := parts[0];
+        // patternStrs := parts[1];
+        input := parts[0] + '?' + parts[0] + '?' + parts[0] + '?' + parts[0] + '?' + parts[0];
+        patternStrs := parts[1] + ',' + parts[1] + ',' + parts[1] + ',' + parts[1] + ',' + parts[1]; 
+        pattern := convertToIntArray(patternStrs.split(','));        
+
+        combos := combinations(input, pattern);
+        std::cout << "Found " << combos << std::endl;
+        result += combos;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}

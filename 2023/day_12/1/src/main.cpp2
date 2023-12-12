@@ -1,0 +1,114 @@
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item)
+    {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert (ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) 
+    {
+        data.push_back(line);
+    }
+
+    input.close();
+
+    return data;
+}
+
+meets: (input : std::string, pattern : std::vector<int>) -> bool = {
+    groupNum := 0;
+    groupCount := 0;
+
+    i := input.find('#');
+    while i < input.size() {
+
+        if input[i] == '#' {
+            groupCount++;
+        }
+
+        if groupCount > 0 && (input[i] == '.' || i == input.size() - 1) {
+            if groupNum >= pattern.ssize() || pattern[groupNum] != groupCount {
+                return false;
+            }
+            groupNum++;
+            groupCount = 0;
+        }
+
+        i++;
+    }
+
+    return groupNum == pattern.ssize();
+}
+
+combinations: (input : std::string, pattern : std::vector<int>) -> int = {
+    result := 0;
+
+    i := input.find('?');    
+    if i != std::string::npos {
+        // recurse
+        inputA := input;
+        inputA[i] = '.';
+        result += combinations(inputA, pattern);
+
+        inputB := input;
+        inputB[i] = '#';
+        result += combinations(inputB, pattern);
+    }
+    else {
+        //std::cout << "Testing [" << input << "]";
+        if meets(input, pattern) {
+            //std::cout << " matches";
+            result++;
+        }
+        //std::cout << std::endl;
+    }
+
+    return result;
+}
+
+main: () -> int = {
+    result := 0;
+
+    // pattern : std::vector<int> = (1, 1, 3);
+    // input := ".#...#....###.";
+    // result += combinations(input, pattern);
+
+    data := readFile("input.txt");
+
+    for data do (line) {
+        parts := line.split(' ');
+        input := parts[0];
+        patternStrs := parts[1].split(',');
+        pattern := convertToIntArray(patternStrs);
+
+        combos := combinations(input, pattern);
+        //std::cout << "Found " << combos << std::endl;
+         result += combos;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
