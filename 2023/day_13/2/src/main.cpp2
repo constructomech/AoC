@@ -1,24 +1,81 @@
 
-// Example type
-Foo : type = {
-    bar: int;
+Pattern : @value type = {
+    public data : std::vector<std::string> = ();
 
-     operator=: (out this, n: int) = {
-        bar = n;
+    operator=: (out this, input: std::vector<std::string>) = {
+        data = input;
     }
 
-    testMethod: (this) -> int = {
-        return this.bar;
+    findRowFold: (this) -> int = {
+        row := 0;
+        while row < data.ssize() - 1 {
+            if verifyRowFold(row) {
+                return row;
+            }
+            row++;
+        }
+        return -1;
+    }
+
+    findColFold: (this) -> int = {
+        col := 0;
+        while col < data[0].ssize() - 1 {
+            if verifyColFold(col) {
+                return col;
+            }
+            col++;
+        }        
+        return -1;
+    }
+
+    verifyRowFold: (this, row : int) -> bool = {
+        u := row;
+        d := row + 1;
+
+        mismatches := 0;
+        while u >= 0 && d < data.ssize() {
+
+            i := 0;
+            while i < data[u].ssize() {
+                if data[u][i] != data[d][i] {
+                    mismatches++;
+                }
+                i++;
+            }
+            u--;
+            d++;
+        }
+
+        return mismatches == 1;
+    }
+
+    verifyColFold: (this, col : int) -> bool = {
+
+        mismatches := 0;
+
+        for data do (row) {
+
+            l := col;
+            r := col + 1;
+            while l >= 0 && r < row.ssize() {
+                if row[l] != row[r] {
+                    mismatches++;
+                }
+                l--;
+                r++;
+            }
+        }
+
+        return mismatches == 1;
     }
 }
 
-// Example trivial function
-hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
-
-// Example of a for loop 
-// for std::views::iota(0, 10) do (i) {
-//     // Do something hopefully more expensive than expanding a std::range
-// }
+min: (x: int, y: int) -> int = {
+    if x < y {
+        return x;
+    }
+    return y;
+}
 
 convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
     result : std::vector<int> = ();
@@ -60,11 +117,42 @@ readFile: (path: std::string) -> std::vector<std::string> = {
     return data;
 }
 
+
 main: () -> int = {
     result := 0;
-    //data := readFile("input.txt");
+    rawData := readFile("input.txt");
 
-    // Implement 
+    patterns : std::vector<Pattern> = ();
+    patternData : std::vector<std::string> = ();
+
+    for rawData do (line) {
+
+        if (line.ssize() == 0) {
+            newPattern : Pattern = (patternData);            
+            patterns.push_back(newPattern);
+            patternData.clear();
+        }
+        else {
+            patternData.push_back(line);
+        }
+    }
+    newPattern : Pattern = (patternData);            
+    patterns.push_back(newPattern);
+
+    // Find the mirror point
+    for patterns do (pattern) {
+        
+        rowFold := pattern.findRowFold();
+        colFold := pattern.findColFold();
+
+        if rowFold != -1 {
+            result += 100 * (rowFold + 1);
+        }
+
+        if colFold != -1 {
+            result += colFold + 1;
+        }
+    }
 
     std::cout << "Result: " << result << std::endl;
 }
