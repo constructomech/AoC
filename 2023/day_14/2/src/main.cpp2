@@ -1,0 +1,191 @@
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+tiltNorth: (inout map : std::vector<std::string>) -> bool = {
+    anyMoved := false;
+
+    j := 1;
+    while j < map.ssize() {
+
+        i := 0;
+        while i < map[j].ssize() {
+
+            if map[j][i] == 'O' && map[j - 1][i] == '.' {
+                map[j - 1][i] = 'O';
+                map[j][i] = '.';
+                anyMoved = true;
+            }
+
+            i++;
+        }
+
+        j++;
+    }
+
+    return anyMoved;
+}
+
+tiltWest: (inout map : std::vector<std::string>) -> bool = {
+    anyMoved := false;
+
+    i := 1;
+    while i < map[0].ssize() {
+
+        j := 0;
+        while j < map.ssize() {
+
+            if map[j][i] == 'O' && map[j][i - 1] == '.' {
+                map[j][i - 1] = 'O';
+                map[j][i] = '.';
+                anyMoved = true;
+            }
+
+            j++;
+        }
+
+        i++;
+    }
+
+    return anyMoved;
+}
+
+tiltSouth: (inout map : std::vector<std::string>) -> bool = {
+    anyMoved := false;
+
+    j := map.ssize() - 2;
+    while j >= 0 {
+
+        i := 0;
+        while i < map[j].ssize() {
+
+            if map[j][i] == 'O' && map[j + 1][i] == '.' {
+                map[j + 1][i] = 'O';
+                map[j][i] = '.';
+                anyMoved = true;
+            }
+
+            i++;
+        }
+
+        j--;
+    }
+
+    return anyMoved;    
+}
+
+tiltEast: (inout map : std::vector<std::string>) -> bool = {
+    anyMoved := false;
+
+    i := map[0].ssize() - 2;
+    while i >= 0 {
+
+        j := 0;
+        while j < map.ssize() {
+
+            if map[j][i] == 'O' && map[j][i + 1] == '.' {
+                map[j][i + 1] = 'O';
+                map[j][i] = '.';
+                anyMoved = true;
+            }
+
+            j++;
+        }
+
+        i--;
+    }
+
+    return anyMoved;
+}
+
+calcWeight: (map : std::vector<std::string>) -> int = {
+    weight := 0;
+
+    j := 0;
+    while j < map.ssize() {
+
+        i := 0;
+        while i < map[j].ssize() {
+
+            if map[j][i] == 'O' {
+                weight += map.ssize() - j;
+            }
+            i++;
+        }
+
+        j++;
+    }
+
+    return weight;
+}
+
+cacheLookup: (cache: std::map<size_t, int>, map : std::vector<std::string>) -> std::tuple<bool, int, size_t> = {
+    cacheKey : size_t = 0u;
+
+    for map do (line) {
+        lineHash := std::hash<std::string>()(line);
+        cacheKey ^= lineHash + 0x9e3779b9 + (cacheKey << 6) + (cacheKey >> 2);
+    }
+
+    it := cache.find(cacheKey);
+    if it != cache.end() {
+        return std::make_tuple(true, it*.second, cacheKey);
+    }
+
+    return std::make_tuple(false, 0, cacheKey);
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    iteration := 0;
+    cache : std::map<size_t, int> = (); // cache of board hashes with the iteration 
+
+    assert(iteration == iteration);
+
+    tryToJump := true;
+
+    while iteration < 1000000000 {
+
+        while tiltNorth(data) {}
+        while tiltWest(data) {}
+        while tiltSouth(data) {}
+        while tiltEast(data) {}
+
+        if tryToJump {
+            cacheEntry := cacheLookup(cache, data);
+            if std::get<0>(cacheEntry) {
+                cachedIteration := std::get<1>(cacheEntry);
+                std::cout << "Iteration " << iteration << " matches iteration " << cachedIteration << std::endl;
+                
+
+                repeatInterval := iteration - cachedIteration;
+                remainingItersBeforeRepeat := 1000000000 - cachedIteration;
+                iterationsToGo := remainingItersBeforeRepeat % repeatInterval;
+                iteration = 1000000000 - iterationsToGo;
+                tryToJump = false;
+            }
+            else {
+                cacheKey := std::get<2>(cacheEntry);
+                cache[cacheKey] = iteration;
+            }
+        }
+
+        iteration++;
+    }
+
+    result = calcWeight(data);
+
+    std::cout << "Result: " << result << std::endl;
+}

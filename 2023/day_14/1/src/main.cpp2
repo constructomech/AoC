@@ -1,0 +1,69 @@
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+tiltNorth: (inout map : std::vector<std::string>) -> bool = {
+    anyMoved := false;
+
+    j := 1;
+    while j < map.ssize() {
+
+        i := 0;
+        while i < map[j].ssize() {
+
+            if map[j][i] == 'O' && map[j - 1][i] == '.' {
+                map[j - 1][i] = 'O';
+                map[j][i] = '.';
+                anyMoved = true;
+            }
+
+            i++;
+        }
+
+        j++;
+    }
+
+    return anyMoved;
+}
+
+calcWeight: (map : std::vector<std::string>) -> int = {
+    weight := 0;
+
+    j := 0;
+    while j < map.ssize() {
+
+        i := 0;
+        while i < map[j].ssize() {
+
+            if map[j][i] == 'O' {
+                weight += map.ssize() - j;
+            }
+            i++;
+        }
+
+        j++;
+    }
+
+    return weight;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    while tiltNorth(data) {}
+
+    result = calcWeight(data);
+
+    std::cout << "Result: " << result << std::endl;
+}
