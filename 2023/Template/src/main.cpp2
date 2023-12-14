@@ -23,8 +23,7 @@ hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
 convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
     result : std::vector<int> = ();
 
-    for data do (item)
-    {
+    for data do (item) {
         val := std::stoi(item);
         result.push_back(val);
     }
@@ -37,7 +36,7 @@ split: (s : std::string, delim : char) -> std::vector<std::string> = {
     ss : std::stringstream = (s);
     item : std::string = "";
 
-    assert (ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
     while ss.getline(item, delim) {
         result.push_back(item);
     }
@@ -50,13 +49,11 @@ readFile: (path: std::string) -> std::vector<std::string> = {
     input : std::ifstream = (path);
     line : std::string = "";
 
-    while (std::getline(input, line)) 
-    {
+    while (std::getline(input, line)) {
         data.push_back(line);
     }
 
     input.close();
-
     return data;
 }
 
