@@ -1,0 +1,108 @@
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+hash: (str : std::string) -> int = {
+    result : uint8_t = 0;
+
+    for str do (c) {
+        result += c;
+        result *= 17;
+    }
+
+    return result;
+}
+
+main: () -> int = {
+    result : i64 = 0;
+    data := readFile("input.txt");
+
+    instructions := data[0].split(',');
+
+    boxes : std::vector<std::vector<std::tuple<std::string, int>>> = ();
+    boxes.resize(256);
+
+    for instructions do (instruction) {
+
+        parts := instruction.split('=');
+        if parts.ssize() == 2 {
+            // label = focal length | add or replace lens
+            label := parts[0];
+            focalLength := std::stoi(parts[1]);
+            boxNum := hash(label);
+
+            std::cout << label << " " << focalLength << " " << boxNum << std::endl;
+
+            found := false;
+            i := 0;
+            while i < boxes[boxNum].ssize() {
+                if label == get<0>(boxes[boxNum][i]) {
+                    boxes[boxNum][i] = std::make_tuple(label, focalLength);
+                    found = true;
+                    break;
+                }
+                i++;
+            }
+
+            if !found {
+                boxes[boxNum].push_back(std::make_tuple(label, focalLength));
+            }
+
+        }
+        else {
+            // label followed by - | remove lens
+            label := parts[0].substr(0, parts[0].ssize() - 1);
+            boxNum := hash(label);
+
+            std::cout << label << " - " << boxNum << std::endl;
+
+            i := 0;
+            while i < boxes[boxNum].ssize() {
+                lens := boxes[boxNum][i];
+                if label == get<0>(lens) {
+                    boxes[boxNum].erase(boxes[boxNum].begin() + i);
+                    break;
+                }
+                i++;
+            }
+        }
+    }
+
+    // Compute focusing power
+    i := 0;
+    for boxes next i++ do (box) {
+
+        j := 1;
+        for box next j++ do (lens) {
+            focalLength := std::get<1>(lens);
+            focusingPower := (1 + i) * j * focalLength;
+
+            result += focusingPower;
+        }
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}

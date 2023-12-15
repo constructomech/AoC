@@ -1,0 +1,51 @@
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+hash: (str : std::string) -> int = {
+    result : uint8_t = 0;
+
+    for str do (c) {
+        result += c;
+        result *= 17;
+    }
+
+    return result;
+}
+
+main: () -> int = {
+    result : i64 = 0;
+    data := readFile("input.txt");
+
+    instructions := data[0].split(',');
+
+    for instructions do (instruction) {
+        tmp := hash(instruction);
+        result += tmp;
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
