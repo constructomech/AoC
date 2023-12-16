@@ -1,24 +1,21 @@
 
-// Example type
-Foo : type = {
-    bar: int;
-
-     operator=: (out this, n: int) = {
-        bar = n;
-    }
-
-    testMethod: (this) -> int = {
-        return this.bar;
-    }
+Pos : @value type = {
+    public x : int = 0;
+    public y : int = 0;
 }
 
-// Example trivial function
-hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
+Direction : @flag_enum type = {
+    None := 0;
+    Up;
+    Down;
+    Left;
+    Right;
+}
 
-// Example of a for loop 
-// for std::views::iota(0, 10) do (i) {
-//     // Do something hopefully more expensive than expanding a std::range
-// }
+Entry : @value type = {
+    public dir : Direction = Direction::None;
+}
+
 
 convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
     result : std::vector<int> = ();
@@ -57,11 +54,145 @@ readFile: (path: std::string) -> std::vector<std::string> = {
     return data;
 }
 
+reflectBackslash: (dir : Direction) -> Direction = {
+    if (dir & Direction::Right) == Direction::Right {
+        return Direction::Down;
+    }
+    else if (dir & Direction::Left) == Direction::Left {
+        return Direction::Up;
+    }
+    else if (dir & Direction::Up) == Direction::Up {
+        return Direction::Left;
+    }
+    else if (dir & Direction::Down) == Direction::Down {
+        return Direction::Right;
+    }
+    return Direction::None;
+}
+
+reflectForwardSlash: (dir : Direction) -> Direction = {
+    if (dir & Direction::Right) == Direction::Right {
+        return Direction::Up;
+    }
+    else if (dir & Direction::Left) == Direction::Left {
+        return Direction::Down;
+    }
+    else if (dir & Direction::Up) == Direction::Up {
+        return Direction::Right;
+    }
+    else if (dir & Direction::Down) == Direction::Down {
+        return Direction::Left;
+    }
+    return Direction::None;
+}
+
+addMoves: (inout q : std::queue<std::tuple<Pos, Direction>>, item : char, nextPos : Pos, dir : Direction) = {
+
+    test := '\\'; // Testing for this in the if condition causes the code not to compile.
+
+    if item == test {
+        newDir := reflectBackslash(dir);
+        q.push(std::make_tuple(nextPos, newDir));
+    }
+    else if item == '/' {
+        newDir := reflectForwardSlash(dir);
+        q.push(std::make_tuple(nextPos, newDir));
+    }
+    else if item == '-' {
+        if (dir & Direction::Right) == Direction::Right || (dir & Direction::Left) == Direction::Left  {
+            q.push(std::make_tuple(nextPos, dir));
+        }
+        else {
+            q.push(std::make_tuple(nextPos, Direction::Left));
+            q.push(std::make_tuple(nextPos, Direction::Right));
+        }
+    }
+    else if item == '|' {
+        if (dir & Direction::Up) == Direction::Up || (dir & Direction::Down) == Direction::Down {
+            q.push(std::make_tuple(nextPos, dir));
+        }
+        else {
+            q.push(std::make_tuple(nextPos, Direction::Up));
+            q.push(std::make_tuple(nextPos, Direction::Down));
+        }
+    }
+    else if item == '.' {
+        q.push(std::make_tuple(nextPos, dir));
+    }
+}
+
 main: () -> int = {
     result := 0;
-    //data := readFile("input.txt");
+    data := readFile("input.txt");
 
-    // Implement 
+    dirMap : std::vector<std::vector<Entry>> = ();
+    dirMap.resize(data.ssize());
+    j := 0;
+    while j < data.ssize() {
+        dirMap[j].resize(data[0].ssize());
+        j++;
+    }
+
+    q : std::queue<std::tuple<Pos, Direction>> = ();
+
+    start : Pos = ();
+    addMoves(q, data[start.y][start.x], start, Direction::Right);
+
+    while q.ssize() > 0 {
+        entry := q.front();
+        q.pop();
+
+        pos := entry.get<0>();
+        dir := entry.get<1>();
+
+        entryDir := dirMap[pos.y][pos.x].dir;
+
+        if dir is (entryDir) {
+            continue; // We've already visited this pos with this direction.
+        }
+
+        dirEntry : Entry = ();
+        dirEntry.dir = entryDir | dir;
+        dirMap[pos.y][pos.x] = dirEntry;
+
+        if (dir & Direction::Right) == Direction::Right {
+            if pos.x + 1 < data[pos.y].ssize() {
+                newPos := pos;
+                newPos.x++;
+                addMoves(q, data[newPos.y][newPos.x], newPos, dir);
+            }
+        }
+        else if (dir & Direction::Left) == Direction::Left {
+            if pos.x - 1 >= 0 {
+                newPos := pos;
+                newPos.x--;
+                addMoves(q, data[newPos.y][newPos.x], newPos, dir);
+            }
+        }
+        else if (dir & Direction::Up) == Direction::Up {
+            if pos.y - 1 >= 0 {
+                newPos := pos;
+                newPos.y--;
+                addMoves(q, data[newPos.y][newPos.x], newPos, dir);
+            }
+        }
+        else if (dir & Direction::Down) == Direction::Down {
+            if pos.y + 1 < data.ssize() {
+                newPos := pos;
+                newPos.y++;
+                addMoves(q, data[newPos.y][newPos.x], newPos, dir);
+            }
+        }
+    }
+
+    // Count all energized cells
+    for dirMap do (row) {
+        for row do (dir) {
+            if dir.dir != Direction::None {
+                result++;
+            }
+        }
+    }
 
     std::cout << "Result: " << result << std::endl;
 }
