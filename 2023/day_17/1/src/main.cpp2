@@ -1,0 +1,198 @@
+
+Pos : @value type = {
+    public x : int = 0;
+    public y : int = 0;
+}
+
+Direction : @enum type = {
+    Undefined;
+    Left;
+    Up;
+    Right;
+    Down;
+}
+
+Node : @value type = {
+    public heatLoss : int = 0;
+    public pos : Pos = ();
+    public dir : Direction = Direction::Undefined;
+    public movesInDir : int = 0;
+//    public debug : std::string = "";
+}
+
+MinPathEntry : @value type = {
+    public pos : Pos = ();
+    public dir : Direction = Direction::Undefined;
+    public movesInDir : int = 0;
+}
+
+// Example of a for loop 
+// for std::views::iota(0, 10) do (i) {
+//     // Do something hopefully more expensive than expanding a std::range
+// }
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item) {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+charFromDir: (dir : Direction) -> char = {
+    assert(dir != Direction::Undefined);
+
+    if dir == Direction::Left {
+        return '<';
+    }
+    if dir == Direction::Right {
+        return '>';
+    }
+    if dir == Direction::Up {
+        return '^';
+    }
+    if dir == Direction::Down {
+        return 'v';
+    }
+    return '.';
+}
+
+buildNext: (priorNode : Node, moveDir : Direction, posHeatLoss : int, targetPos : Pos) -> Node = {
+    nextNode : Node = ();
+
+    nextMovesInDir := 1;
+    if priorNode.dir == moveDir {
+        nextMovesInDir = priorNode.movesInDir + 1;                    
+    }
+
+    nextNode.heatLoss = priorNode.heatLoss + posHeatLoss;
+    nextNode.pos = targetPos;
+    nextNode.dir = moveDir;
+    nextNode.movesInDir = nextMovesInDir;
+    //nextNode.debug = priorNode.debug + charFromDir(moveDir);
+
+    return nextNode;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    lowestHeatLoss : std::vector<std::vector<int>> = ();
+    lowestHeatLoss.resize(data.ssize());
+    j := 0;
+    while j < data.ssize() {
+        lowestHeatLoss[j].resize(data[0].ssize());
+
+        i := 0;
+        while i < data[j].ssize() {
+            lowestHeatLoss[j][i] = std::numeric_limits<int>::max();
+            i++;
+        }
+        j++;
+    }
+    endPos : Pos = ();
+    endPos.x = lowestHeatLoss[0].ssize() - 1;
+    endPos.y = lowestHeatLoss.ssize() - 1;
+
+    q : std::stack<Node> = ();
+    start : Node = ();
+    q.push(start);
+    
+    while q.ssize() > 0 {
+        item := q.top();
+        q.pop();
+
+        manhattanDistToEnd := endPos.x - item.pos.x + endPos.y - item.pos.y;
+
+        pos := item.pos;
+        if item.heatLoss < lowestHeatLoss[pos.y][pos.x] {
+            lowestHeatLoss[pos.y][pos.x] = item.heatLoss;
+        }
+        else if item.heatLoss + manhattanDistToEnd > lowestHeatLoss[endPos.y][endPos.x] {
+            continue;
+        }
+        // else if item.heatLoss > lowestHeatLoss[endPos.y][endPos.x] {
+        //     continue;
+        // }
+
+        if pos.x == data[0].ssize() - 1 && pos.y == data.ssize() - 1 {
+            if item.heatLoss == lowestHeatLoss[pos.y][pos.x] {
+                std::cout << item.heatLoss << ": " << std::endl; // << item.debug << std::endl;
+            }
+            continue;
+        }
+        else {
+            // For each possible direction, explore if valid
+            if pos.x - 1 >= 0 {  // Left
+                nextPos := pos;
+                nextPos.x--;
+                nextNode := buildNext(item, Direction::Left, data[pos.y][pos.x - 1] - '0', nextPos);
+
+                if nextNode.movesInDir <= 3 && nextNode.dir != Direction::Right {
+                    q.push(nextNode);
+                }
+            }
+            if pos.y - 1 >= 0 {  // Up
+                nextPos := pos;
+                nextPos.y--;
+                nextNode := buildNext(item, Direction::Up, data[pos.y - 1][pos.x] - '0', nextPos);
+
+                if nextNode.movesInDir <= 3 && nextNode.dir != Direction::Down {
+                    q.push(nextNode);
+                }
+            }
+            if pos.x + 1 < data[0].ssize() {  // Right
+                nextPos := pos;
+                nextPos.x++;
+                nextNode := buildNext(item, Direction::Right, data[pos.y][pos.x + 1] - '0', nextPos);
+
+                if nextNode.movesInDir <= 3 && nextNode.dir != Direction::Left {
+                    q.push(nextNode);
+                }
+            }
+            if pos.y + 1 < data.ssize() {  // Down
+                nextPos := pos;
+                nextPos.y++;
+                nextNode := buildNext(item, Direction::Down, data[pos.y + 1][pos.x] - '0', nextPos);
+
+                if nextNode.movesInDir <= 3 && nextNode.dir != Direction::Up {
+                    q.push(nextNode);
+                }
+            }
+        }
+    }
+
+    result = lowestHeatLoss[endPos.y][endPos.x];
+
+    std::cout << "Result: " << result << std::endl;
+}
