@@ -110,8 +110,13 @@ main: () -> int = {
 
     cmp := :(left : Node, right : Node) -> bool = right.heatLoss < left.heatLoss;
     q : std::priority_queue<Node, std::vector<Node>, decltype(cmp)> = (cmp);
-    start : Node = ();
-    q.push(start);
+    start1 : Node = ();
+    start1.dir = Direction::Right;
+    start2 : Node = ();
+    start2.dir = Direction::Down;
+
+    q.push(start1);
+    q.push(start2);
     
     while q.ssize() > 0 {
         item := q.top();
@@ -130,7 +135,7 @@ main: () -> int = {
             continue;
         }
 
-        if pos.x == endPos.x && pos.y == endPos.y {
+        if pos.x == endPos.x && pos.y == endPos.y && item.movesInDir >= 4 {
             if item.heatLoss < result {
                 std::cout << item.heatLoss << ": " << item.debug << std::endl;
                 result = item.heatLoss;
@@ -144,7 +149,7 @@ main: () -> int = {
                 nextPos.x--;
                 nextNode := buildNext(item, Direction::Left, data[pos.y][pos.x - 1] - '0', nextPos);
 
-                if nextNode.movesInDir <= 3 {
+                if nextNode.movesInDir <= 10 && (nextNode.dir == item.dir || item.movesInDir >= 4) {
                     q.push(nextNode);
                 }
             }
@@ -153,7 +158,7 @@ main: () -> int = {
                 nextPos.y--;
                 nextNode := buildNext(item, Direction::Up, data[pos.y - 1][pos.x] - '0', nextPos);
 
-                if nextNode.movesInDir <= 3 {
+                if nextNode.movesInDir <= 10 && (nextNode.dir == item.dir || item.movesInDir >= 4) {
                     q.push(nextNode);
                 }
             }
@@ -162,7 +167,7 @@ main: () -> int = {
                 nextPos.x++;
                 nextNode := buildNext(item, Direction::Right, data[pos.y][pos.x + 1] - '0', nextPos);
 
-                if nextNode.movesInDir <= 3 {
+                if nextNode.movesInDir <= 10 && (nextNode.dir == item.dir || item.movesInDir >= 4) {
                     q.push(nextNode);
                 }
             }
@@ -171,7 +176,7 @@ main: () -> int = {
                 nextPos.y++;
                 nextNode := buildNext(item, Direction::Down, data[pos.y + 1][pos.x] - '0', nextPos);
 
-                if nextNode.movesInDir <= 3 {
+                if nextNode.movesInDir <= 10 && (nextNode.dir == item.dir || item.movesInDir >= 4) {
                     q.push(nextNode);
                 }
             }
