@@ -1,0 +1,139 @@
+
+Rule : @value type = {
+    public var : char = 'T';
+    public op : char = '=';
+    public val : int = 0;
+    public result : std::string = "";
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+runRules: (workflows : std::unordered_map<std::string, std::vector<Rule>>, part : std::unordered_map<char, int>) -> bool = {
+
+    currentWorkflowName : std::string = "in";
+    while true {
+        workflow := workflows.at(currentWorkflowName);
+        workflowResult := runWorkflow(workflow, part);
+        if workflowResult == "A" {
+            return true;
+        } else if workflowResult == "R" {
+            return false;
+        }
+        currentWorkflowName = workflowResult;
+    }
+    
+    return false;
+}
+
+runWorkflow: (workflow : std::vector<Rule>, part : std::unordered_map<char, int>) -> std::string = {
+    for workflow do (rule) {
+        if rule.op == '=' {
+            return rule.result;
+        }
+        else if rule.op == '<' {
+            lhs := part.at(rule.var);
+            if lhs < rule.val {
+                return rule.result;
+            }
+        }
+        else if rule.op == '>' {
+            lhs := part.at(rule.var);
+            if lhs > rule.val {
+                return rule.result;
+            }
+        }
+    }
+    assert(false);
+    return "";
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+    parsingWorkflows := true;
+
+    workflows : std::unordered_map<std::string, std::vector<Rule>> = ();
+    parts : std::vector<std::unordered_map<char, int>> = ();
+
+    for data do (line) {
+        if parsingWorkflows {
+            if line.ssize() == 0 {
+                parsingWorkflows = false;
+                continue;
+            }
+
+            // Parse workflows
+            parts1 := line.split('{');
+            ruleName := parts1[0];
+            steps := parts1[1].substr(0, parts1[1].ssize() - 1);
+
+            rules : std::vector<Rule> = ();
+            rulesStr := steps.split(',');
+
+            for rulesStr do (ruleStr) {
+                parts2 := ruleStr.split(':');
+                rule : Rule = ();
+                if parts2.ssize() == 1 {
+                    rule.result = parts2[0];
+                }
+                else {
+                    rule.var = parts2[0][0];
+                    rule.op = parts2[0][1];
+                    rule.val = std::stoi(parts2[0].substr(2));
+                    rule.result = parts2[1];
+                }
+                rules.push_back(rule);
+            }
+
+            workflows[ruleName] = rules;
+        }
+        else {
+            // Parse datum
+            part : std::unordered_map<char, int> = ();
+
+            partsStrs := line.substr(1, line.ssize() - 2).split(',');
+            for partsStrs do (partStr) {
+                var := partStr[0];
+                val := std::stoi(partStr.substr(2));
+                part[var] = val;
+            }
+
+            parts.push_back(part);
+        }
+    }
+
+    // Run the rules
+    for parts do (part) {
+        if runRules(workflows, part) {
+            for part do (component) {
+                result += component.second;
+            }
+        }
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}

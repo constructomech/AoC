@@ -1,0 +1,197 @@
+
+Rule : @value type = {
+    public var : char = 'T';
+    public op : char = '=';
+    public val : int = 0;
+    public result : std::string = "";
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+runRules: (workflows : std::unordered_map<std::string, std::vector<Rule>>, partList : std::vector<std::tuple<std::unordered_map<char, std::tuple<int, int>>, std::string>>) -> std::vector<std::tuple<std::unordered_map<char, std::tuple<int, int>>, std::string>> = {
+    newPartList : std::vector<std::tuple<std::unordered_map<char, std::tuple<int, int>>, std::string>> = ();
+
+    for partList do (partAndState) {
+
+        part := partAndState.get<0>();
+        state := partAndState.get<1>();
+
+        if state != "R" && state != "A" {
+            workflow := workflows.at(state);
+            workflowResult := runWorkflow(workflow, part);
+
+            for workflowResult do (partListEntry) {
+                newPartList.push_back(partListEntry);
+            }
+        }
+        else {
+            newPartList.push_back(partAndState);
+        }
+    }
+    
+    return newPartList;
+}
+
+copyPart : (part : std::unordered_map<char, std::tuple<int, int>>) -> std::unordered_map<char, std::tuple<int, int>> = {
+    result : std::unordered_map<char, std::tuple<int, int>> = ();
+
+    for part do (item) {
+        result[item.first] = item.second;
+    }
+
+    return result;
+}
+
+runWorkflow: (workflow : std::vector<Rule>, part : std::unordered_map<char, std::tuple<int, int>>) -> std::vector<std::tuple<std::unordered_map<char, std::tuple<int, int>>, std::string>> = {
+    partList : std::vector<std::tuple<std::unordered_map<char, std::tuple<int, int>>, std::string>> = ();
+
+    currentPart := copyPart(part);
+
+    for workflow do (rule) {
+        if rule.op == '=' {
+            partList.push_back(std::make_tuple(currentPart, rule.result));
+            break;
+        }
+        else if rule.op == '<' {
+            range := currentPart.at(rule.var);
+            from := range.get<0>();
+            to := range.get<1>();
+            if to < rule.val {
+                partList.push_back(std::make_tuple(currentPart, rule.result));
+                break;
+            }
+            if from < rule.val {
+                newPart := copyPart(currentPart);
+                newPart.at(rule.var) = std::make_tuple(from, rule.val - 1);
+                partList.push_back(std::make_tuple(newPart, rule.result));
+
+                currentPart.at(rule.var) = std::make_tuple(rule.val, to);
+            }
+        }
+        else if rule.op == '>' {
+            range := currentPart.at(rule.var);
+            from := range.get<0>();
+            to := range.get<1>();
+            if from > rule.val {
+                partList.push_back(std::make_tuple(currentPart, rule.result));
+                break;
+            }
+            if to > rule.val {
+                newPart := copyPart(currentPart);
+                newPart.at(rule.var) = std::make_tuple(rule.val + 1, to);
+                partList.push_back(std::make_tuple(newPart, rule.result));
+
+                currentPart.at(rule.var) = std::make_tuple(from, rule.val);
+            }
+        }
+    }
+
+    return partList;
+}
+
+main: () -> int = {
+    result : i64 = 0;
+    data := readFile("input.txt");
+
+    workflows : std::unordered_map<std::string, std::vector<Rule>> = ();
+
+    for data do (line) {
+        if line.ssize() == 0 {
+            break;
+        }
+
+        // Parse workflows
+        parts1 := line.split('{');
+        ruleName := parts1[0];
+        steps := parts1[1].substr(0, parts1[1].ssize() - 1);
+
+        rules : std::vector<Rule> = ();
+        rulesStr := steps.split(',');
+
+        for rulesStr do (ruleStr) {
+            parts2 := ruleStr.split(':');
+            rule : Rule = ();
+            if parts2.ssize() == 1 {
+                rule.result = parts2[0];
+            }
+            else {
+                rule.var = parts2[0][0];
+                rule.op = parts2[0][1];
+                rule.val = std::stoi(parts2[0].substr(2));
+                rule.result = parts2[1];
+            }
+            rules.push_back(rule);
+        }
+
+        workflows[ruleName] = rules;
+    }
+
+    // Vector of (part, state)
+    partList : std::vector<std::tuple<std::unordered_map<char, std::tuple<int, int>>, std::string>> = ();
+    startPart : std::unordered_map<char, std::tuple<int, int>> = ();
+    startPart['x'] = std::make_tuple(1, 4000);
+    startPart['m'] = std::make_tuple(1, 4000);
+    startPart['a'] = std::make_tuple(1, 4000);
+    startPart['s'] = std::make_tuple(1, 4000);
+    partList.push_back(std::make_tuple(startPart, "in"));
+
+    // Run the rules
+    while true {
+        partList = runRules(workflows, partList);
+
+        cont := false;
+        for partList do (part) {
+            state := part.get<1>();
+            if state != "R" && state != "A" {
+                cont = true;
+                break;
+            }
+        }
+
+        if !cont {
+            break;
+        }
+    }
+
+    for partList do (partAndState) {
+        part := partAndState.get<0>();
+        state := partAndState.get<1>();
+
+        if state == "A" {
+            combinations : i64 = 1;
+            for part do (varRange) {
+                min := varRange.second.get<0>();
+                max := varRange.second.get<1>();
+                rangeSize := max - min + 1;
+                combinations *= rangeSize;
+            }
+            result += combinations;
+        }
+    }
+
+    std::cout << "Result: " << result << std::endl;
+}
