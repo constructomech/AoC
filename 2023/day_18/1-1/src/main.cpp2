@@ -1,0 +1,211 @@
+
+Pos : @value type = {
+    public x : int;
+    public y : int;
+
+    operator=: (out this) = {
+        this.x = 0;
+        this.y = 0;
+    }
+
+    operator=: (out this, _x : int, _y : int) = {
+        this.x = _x;
+        this.y = _y;
+    }
+
+    operator+=: (inout this, rhs : Pos) = {
+        this.x += rhs.x;
+        this.y += rhs.y;
+    }
+
+    operator*=: (inout this, scalar : int) = {
+        this.x *= scalar;
+        this.y *= scalar;
+    }
+}
+
+LineSegment : @value type = {
+    public x : int = 0;
+    public minY : int = 0;
+    public maxY : int = 0;
+
+    operator=: (out this, _x : int, _minY : int, _maxY : int) = {
+        x = _x;
+        minY = _minY;
+        maxY = _maxY;
+    }
+}
+
+Plot : type = {
+
+    insertVerticalSegment: (inout this, _x : int, y1 : int, y2 : int) = {
+        _minY := y1;
+        _maxY := y2;
+
+        if y1 > y2 {
+            _minY = y2;
+            _maxY = y1;
+        }
+
+        if _minY < minY {
+            minY = _minY;
+        }
+        if _maxY > maxY {
+            maxY = _maxY;
+        }
+
+        it := segments.begin();
+        while it != segments.end() {
+            if it*.x > _x {
+                break;
+            }
+            it++;
+        }
+
+        segment : LineSegment = (_x, _minY, _maxY);
+        segments.insert(it, segment);
+    }
+
+    getArea: (this) -> i64 = {
+        result : i64 = 0;
+
+        rowNum := minY;
+        while rowNum <= maxY {
+
+            // Walk all line segments, considering those that intersect this row
+            intersectStartX := std::numeric_limits<int>::min();
+
+            intersectStartX1 := std::numeric_limits<int>::min();
+            intersectStartX2 := std::numeric_limits<int>::min();
+            rayCastY1 : double = rowNum - 0.1;
+            rayCastY2 : double = rowNum + 0.1;
+
+            for segments do (segment) {
+                if segment.minY < rayCastY1 < segment.maxY {
+
+                    if intersectStartX1 != std::numeric_limits<int>::min() {
+                        intersectStartX1 = std::numeric_limits<int>::min();
+                    }
+                    else {
+                        intersectStartX1 = segment.x;
+                    }
+                }
+                if segment.minY < rayCastY2 < segment.maxY {
+
+                    if intersectStartX2 != std::numeric_limits<int>::min() {
+                        intersectStartX2 = std::numeric_limits<int>::min();
+                    }
+                    else {
+                        intersectStartX2 = segment.x;
+                    }
+                }
+
+                // If either of the rays found an intersect, start an interval
+                if intersectStartX == std::numeric_limits<int>::min() {
+
+                    if intersectStartX1 != std::numeric_limits<int>::min() {
+                        intersectStartX = intersectStartX1;
+                    }
+                    else if intersectStartX2 != std::numeric_limits<int>::min() {
+                        intersectStartX = intersectStartX2;
+                    }
+                }
+                // If both rays no longer intersect, end an interval
+                else if intersectStartX1 == std::numeric_limits<int>::min() && intersectStartX2 == std::numeric_limits<int>::min() {
+                    segmentSize := segment.x - intersectStartX + 1;
+                    result += segmentSize;
+
+                    intersectStartX = std::numeric_limits<int>::min();
+                    // std::cout << "Added row " << rowNum << " = " << segmentSize << std::endl;
+                }
+            }
+
+            rowNum++;
+        }
+
+        return result;
+    }
+
+    minY : int = std::numeric_limits<int>::max();
+    maxY : int = std::numeric_limits<int>::min();
+
+    // Map of verticies by col then row
+    segments : std::vector<LineSegment> = ();
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+getOffset: (direction : char) -> Pos = {
+    result : Pos = ();
+    if direction == 'U' {
+        result.y = -1;
+    }
+    else if direction == 'D' {
+        result.y = 1;
+    }
+    else if direction == 'L' {
+        result.x = -1;
+    }
+    else if direction == 'R' {
+        result.x = 1;
+    }
+    return result;
+}
+
+apply: (inout cursor : Pos, direction : char, count : int) -> bool = {
+    offset := getOffset(direction);
+    offset *= count;
+    cursor += offset;
+    return offset.x == 0;
+}
+
+main: () -> int = {
+    result : i64 = 0;
+    data := readFile("input.txt");
+
+    plot : Plot = ();
+    prior : Pos = ();
+    cursor : Pos = ();
+
+    for data do (line) {
+        parts := line.split(' ');
+        direction := parts[0][0];
+        count := std::stoi(parts[1]);
+
+        isVerticalMove := apply(cursor, direction, count);
+
+        if prior != cursor && isVerticalMove {
+            plot.insertVerticalSegment(cursor.x, prior.y, cursor.y);
+        }
+
+        prior = cursor;
+    }
+
+    result = plot.getArea();
+
+    std::cout << "Result: " << result << std::endl;
+}
