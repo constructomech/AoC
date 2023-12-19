@@ -1,0 +1,212 @@
+
+Pos : @value type = {
+    public x : int = 0;
+    public y : int = 0;
+
+    operator+=: (inout this, rhs : Pos) = {
+        this.x += rhs.x;
+        this.y += rhs.y;
+    }
+}
+
+Plot : type = {
+    getWidth: (this) -> int = {
+        return maxX - minX + 1;
+    }
+
+    getHeight: (this) -> int = {
+        return maxY - minY + 1;
+    }
+
+    // operator=: (out this, n: int) = {
+    //     bar = n;
+    // }
+
+    insert: (inout this, pos : Pos, color : std::string) = {
+        if pos.x < minX {
+            minX = pos.x;
+        }
+        if pos.x > maxX {
+            maxX = pos.x;
+        }
+        if pos.y < minY {
+            minY = pos.y;
+        }
+        if pos.y > maxY {
+            maxY = pos.y;
+        }
+        data[pos] = color;
+    }
+
+    fill: (inout this) = {
+        start : Pos = ();
+
+        // It just so happens that (1, 1) is inside the shape in both data sets
+        start.x = 1;
+        start.y = 1;
+
+        toFill : std::set<Pos> = ();
+        toFill.insert(start);
+
+        while toFill.ssize() > 0 {
+
+            it := toFill.begin();
+            pos := it*;
+            toFill.erase(it);
+
+            data[pos] = "";
+
+            nextPos : Pos = ();
+            nextPos.x = -1;
+            nextPos.y = 0;
+            nextPos += pos;
+            if !data.contains(nextPos) && !toFill.contains(nextPos) {
+                toFill.insert(nextPos);
+            }
+            
+            nextPos.x = 1;
+            nextPos.y = 0;
+            nextPos += pos;
+            if !data.contains(nextPos) && !toFill.contains(nextPos) {
+                toFill.insert(nextPos);
+            }
+
+            nextPos.x = 0;
+            nextPos.y = -1;
+            nextPos += pos;
+            if !data.contains(nextPos) && !toFill.contains(nextPos) {
+                toFill.insert(nextPos);
+            }
+
+            nextPos.x = 0;
+            nextPos.y = 1;
+            nextPos += pos;
+            if !data.contains(nextPos) && !toFill.contains(nextPos) {
+                toFill.insert(nextPos);
+            }
+        }
+    }
+
+    print: (this) = {
+        j := minY;
+        while j <= maxY {
+            i := minX;
+            while i <= maxX {
+                if i == 0 && j == 0 {
+                    std::cout << "X";
+                }
+                else {
+                    test : Pos = ();
+                    test.x = i;
+                    test.y = j;
+
+                    if data.contains(test) {
+                        std::cout << '#';
+                    }
+                    else {
+                        std::cout << '.';
+                    }
+                }
+                i++;
+            }
+            std::cout << std::endl;
+            j++;
+        }        
+        std::cout << std::endl;
+    }
+
+    getArea: (this) -> int = {
+        return data.ssize();
+    }
+
+    minX : int = std::numeric_limits<int>::max();
+    minY : int = std::numeric_limits<int>::max();
+    maxX : int = std::numeric_limits<int>::min();
+    maxY : int = std::numeric_limits<int>::min();
+
+    data : std::map<Pos, std::string> = ();
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+getOffset: (direction : char) -> Pos = {
+    result : Pos = ();
+    if direction == 'U' {
+        result.y = -1;
+    }
+    else if direction == 'D' {
+        result.y = 1;
+    }
+    else if direction == 'L' {
+        result.x = -1;
+    }
+    else if direction == 'R' {
+        result.x = 1;
+    }
+    return result;
+}
+
+apply: (inout plot : Plot, inout cursor : Pos, direction : char, count : int, color : std::string) = {
+    offset := getOffset(direction);
+
+    i := 0;
+    while i < count {
+        cursor += offset;
+        plot.insert(cursor, color);
+        i++;
+    }
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    plot : Plot = ();
+    cursor : Pos = ();
+    plot.insert(cursor, "");
+
+    for data do (line) {
+        parts := line.split(' ');
+        direction := parts[0][0];
+        count := std::stoi(parts[1]);
+        color := parts[2];
+
+        apply(plot, cursor, direction, count, color);       
+    }
+
+    std::cout << "Outline" << std::endl;
+    plot.print();
+
+    plot.fill();
+
+    result = plot.getArea();
+
+    std::cout << "Dug out" << std::endl;
+    plot.print();
+
+    std::cout << "Result: " << result << std::endl;
+}
