@@ -1,5 +1,5 @@
 
-PulseStregth : @enum type = {
+PulseStrength : @enum type = {
     Undefined;
     Low;
     High;
@@ -14,7 +14,8 @@ ModuleType : @enum type = {
 }
 
 Pulse : @value type = {
-    public strength : PulseStregth = PulseStregth::Undefined;
+    public from : std::string = "";
+    public strength : PulseStrength = PulseStrength::Undefined;
     public destination : std::string = "";
 }
 
@@ -23,20 +24,50 @@ Router : type = {
     public highPulses : i64 = 0;
     public lowPulses : i64 = 0;
 
-    sendPulse : (inout this, from : std::string, strength : PulseStregth) = {
+    init : (inout this) = {
+        it := modules.begin();
+        while it != modules.end() {
+            inputDependenies : std::vector<std::string> = ();
+            for connections do (connectionItem) {
+                for connectionItem.second do (connection) {
+                    if connection == it*.moduleName {
+                        inputDependenies.push_back(connectionItem.first);
+                    }
+                }
+            }
+
+            it*.init(inputDependenies);
+            it++;
+        }
+    }
+
+    sendPulse : (inout this, from : std::string, strength : PulseStrength) = {
         recipients := connections.at(from);
 
         for recipients do (recipient) {
             pulse : Pulse = ();
+            pulse.from = from;
             pulse.strength = strength;
             pulse.destination = recipient;
             q.push(pulse);
         }
     }
 
+    getModuleIt : (inout this, moduleName : std::string, mustExist : bool) -> std::vector<Module>::iterator = {
+        it := modules.begin();
+        while it != modules.end() {
+            if it*.moduleName == moduleName {
+                return it;
+            }
+            it++;
+        }
+        assert(!mustExist);
+        return modules.end();
+    }
+
     pressButton : (inout this) = {
-        button := modules.at("button");
-        button.recievePulse(this, PulseStregth::Low);
+        buttonIt := getModuleIt("button", true);
+        buttonIt*.recievePulse(this, "start", PulseStrength::Low);
 
         while processPulse() {}
     }
@@ -44,7 +75,7 @@ Router : type = {
     addModule : (inout this, moduleName : std::string, moduleType : ModuleType, connectedModules : std::vector<std::string>) = {
         newModule : Module = (moduleName, moduleType);
 
-        modules[moduleName] = newModule;
+        modules.emplace_back(newModule);
         connections[moduleName] = connectedModules;
     }
 
@@ -53,13 +84,17 @@ Router : type = {
             pulse := q.front();
             q.pop();
 
-            targetModule := modules.at(pulse.destination);
-            targetModule.recievePulse(this, pulse.strength);
+            std::cout << pulse.from << " -> " << pulse.destination << std::endl;
 
-            if pulse.strength == PulseStregth::Low {
+            targetModuleIt := getModuleIt(pulse.destination, false);
+            if targetModuleIt != modules.end() {
+                targetModuleIt*.recievePulse(this, pulse.from, pulse.strength);
+            }
+
+            if pulse.strength == PulseStrength::Low {
                 lowPulses++;
             }
-            else if pulse.strength == PulseStregth::High {
+            else if pulse.strength == PulseStrength::High {
                 highPulses++;
             }
 
@@ -68,42 +103,80 @@ Router : type = {
         return false;
     }
 
-    modules : std::unordered_map<std::string, Module> = ();
+    modules : std::vector<Module> = ();
     connections : std::unordered_map<std::string, std::vector<std::string>> = ();
     q : std::queue<Pulse> = ();
 }
 
 Module : @copyable type = {
 
-    public moduleName : std::string = "";
-    public moduleType : ModuleType = ModuleType::Undefined;
-
-    // b = button
-    // c = broadcast
-    // % = flip-flop
-    // & = conjunction
-    // u = undefined
+    public moduleName : std::string;
+    public moduleType : ModuleType;
+    public flipFlopOn : bool;
+    public conjunctionState : std::unordered_map<std::string, PulseStrength>;
 
     operator=: (out this) = {
         moduleName = "";
         moduleType = ModuleType::Undefined;
+        flipFlopOn = false;
+        conjunctionState = ();
     }
 
     operator=: (out this, _moduleName : std::string, _moduleType: ModuleType) = {
         moduleName = _moduleName;
         moduleType = _moduleType;
+        flipFlopOn = false;
+        conjunctionState = ();
     }
 
-    // operator=: (out this, other : Module) = {
-    //     moduleName = other.moduleName;
-    //     moduleType = other.moduleType;
-    // }
+    init : (inout this, inboundConnections : std::vector<std::string>) = {
+        if moduleType == ModuleType::Conjunction {
+            for inboundConnections do (inboundConnection) {
+                conjunctionState.emplace(inboundConnection, PulseStrength::Low);
+            }
+        }
+    }
 
-    recievePulse : (this, inout router : Router, pulseStregth : PulseStregth) = {
+    recievePulse : (inout this, inout router : Router, from : std::string, pulseStrength : PulseStrength) = {
         // Process pulse, enqueing any further pulses via the router.
 
         if moduleType == ModuleType::Button {
-            router.sendPulse(moduleName, PulseStregth::Low);
+            router.sendPulse(moduleName, PulseStrength::Low);
+        }
+        else if moduleType == ModuleType::Broadcaster {
+            router.sendPulse(moduleName, pulseStrength);
+        }
+        else if moduleType == ModuleType::FlipFlop {
+            if pulseStrength != PulseStrength::High {
+                if flipFlopOn {
+                    router.sendPulse(moduleName, PulseStrength::Low);
+                }
+                else {
+                    router.sendPulse(moduleName, PulseStrength::High);
+                }
+                flipFlopOn = !flipFlopOn;
+            }
+        }
+        else if moduleType == ModuleType::Conjunction {
+            conjunctionState.at(from) = pulseStrength;
+            
+            allHigh := true;
+            for conjunctionState do (inputState) {
+                if inputState.second != PulseStrength::High {
+                    allHigh = false;
+                    break;
+                }                
+            }
+
+            if allHigh {
+                router.sendPulse(moduleName, PulseStrength::Low);                
+            }
+            else {
+                router.sendPulse(moduleName, PulseStrength::High);
+            }
+        }
+        else {
+            assert(false);
         }
     }
 }
@@ -168,7 +241,8 @@ main: () -> int = {
 
         connections : std::vector<std::string> = ();
         for std::views::iota(2, parts.ssize()) do (i) {
-            connections.push_back(parts[i]);
+            parts2 := parts[i].split(',');
+            connections.push_back(parts2[0]);
         }
 
         router.addModule(moduleName, moduleType, connections);
@@ -176,6 +250,7 @@ main: () -> int = {
     connections : std::vector<std::string> = ();
     connections.push_back("broadcaster");
     router.addModule("button", ModuleType::Button, connections);
+    router.init();
 
     // Run the machine for 1000 iterations:
     for std::views::iota(0, 1000) do (i) {
