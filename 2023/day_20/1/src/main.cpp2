@@ -1,0 +1,193 @@
+
+PulseStregth : @enum type = {
+    Undefined;
+    Low;
+    High;
+}
+
+ModuleType : @enum type = {
+    Undefined;
+    Button;
+    Broadcaster;
+    FlipFlop;
+    Conjunction;
+}
+
+Pulse : @value type = {
+    public strength : PulseStregth = PulseStregth::Undefined;
+    public destination : std::string = "";
+}
+
+// Routes outputs from a module to connected modules and counts pulses
+Router : type = {
+    public highPulses : i64 = 0;
+    public lowPulses : i64 = 0;
+
+    sendPulse : (inout this, from : std::string, strength : PulseStregth) = {
+        recipients := connections.at(from);
+
+        for recipients do (recipient) {
+            pulse : Pulse = ();
+            pulse.strength = strength;
+            pulse.destination = recipient;
+            q.push(pulse);
+        }
+    }
+
+    pressButton : (inout this) = {
+        button := modules.at("button");
+        button.recievePulse(this, PulseStregth::Low);
+
+        while processPulse() {}
+    }
+
+    addModule : (inout this, moduleName : std::string, moduleType : ModuleType, connectedModules : std::vector<std::string>) = {
+        newModule : Module = (moduleName, moduleType);
+
+        modules[moduleName] = newModule;
+        connections[moduleName] = connectedModules;
+    }
+
+    private processPulse: (inout this) -> bool = {
+        if q.ssize() > 0 {
+            pulse := q.front();
+            q.pop();
+
+            targetModule := modules.at(pulse.destination);
+            targetModule.recievePulse(this, pulse.strength);
+
+            if pulse.strength == PulseStregth::Low {
+                lowPulses++;
+            }
+            else if pulse.strength == PulseStregth::High {
+                highPulses++;
+            }
+
+            return true;
+        }
+        return false;
+    }
+
+    modules : std::unordered_map<std::string, Module> = ();
+    connections : std::unordered_map<std::string, std::vector<std::string>> = ();
+    q : std::queue<Pulse> = ();
+}
+
+Module : @copyable type = {
+
+    public moduleName : std::string = "";
+    public moduleType : ModuleType = ModuleType::Undefined;
+
+    // b = button
+    // c = broadcast
+    // % = flip-flop
+    // & = conjunction
+    // u = undefined
+
+    operator=: (out this) = {
+        moduleName = "";
+        moduleType = ModuleType::Undefined;
+    }
+
+    operator=: (out this, _moduleName : std::string, _moduleType: ModuleType) = {
+        moduleName = _moduleName;
+        moduleType = _moduleType;
+    }
+
+    // operator=: (out this, other : Module) = {
+    //     moduleName = other.moduleName;
+    //     moduleType = other.moduleType;
+    // }
+
+    recievePulse : (this, inout router : Router, pulseStregth : PulseStregth) = {
+        // Process pulse, enqueing any further pulses via the router.
+
+        if moduleType == ModuleType::Button {
+            router.sendPulse(moduleName, PulseStregth::Low);
+        }
+    }
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+getType: (name : std::string) -> ModuleType = {
+    if name == "broadcaster" {
+        return ModuleType::Broadcaster;
+    }
+    typeIndicator := name.substr(0, 1)[0];
+    if typeIndicator == '%' {
+        return ModuleType::FlipFlop;
+    }
+    assert(typeIndicator == '&');
+    return ModuleType::Conjunction;
+}
+
+getName: (name : std::string) -> std::string = {
+    if name == "broadcaster" {
+        return "broadcaster";
+    }
+    return name.substr(1);
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+
+    // Create and populate the router for the machine config in input.txt
+    router : Router = ();
+
+    for data do (line) {
+
+        parts := line.split(' ');
+        moduleType := getType(parts[0]);
+        moduleName := getName(parts[0]);
+
+        connections : std::vector<std::string> = ();
+        for std::views::iota(2, parts.ssize()) do (i) {
+            connections.push_back(parts[i]);
+        }
+
+        router.addModule(moduleName, moduleType, connections);
+    }
+    connections : std::vector<std::string> = ();
+    connections.push_back("broadcaster");
+    router.addModule("button", ModuleType::Button, connections);
+
+    // Run the machine for 1000 iterations:
+    for std::views::iota(0, 1000) do (i) {
+
+        // Press the button directly, not through the router, so the router doesn't count an input pulse
+        router.pressButton();
+    }
+
+    std::cout << "Low pulses: " << router.lowPulses << std::endl;
+    std::cout << "high pulses: " << router.highPulses << std::endl;
+
+    result = router.lowPulses * router.highPulses;
+
+    std::cout << "Result: " << result << std::endl;
+}
