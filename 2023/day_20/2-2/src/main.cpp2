@@ -1,0 +1,50 @@
+
+allEqual: (factors : std::vector<std::tuple<i64, int>>) -> bool = {
+    compIndex := 0;
+    i := 1;
+    while i < factors.ssize() {
+        if factors[i].get<0>() != factors[compIndex].get<0>() {
+            return false;
+        }
+        i++;
+    }
+    return true;
+}
+
+incLowest: (inout factors : std::vector<std::tuple<i64, int>>) = {
+    lowestIndex := 0;
+    i := 1;
+    while i < factors.ssize() {
+        if factors[i].get<0>() < factors[lowestIndex].get<0>() {
+            lowestIndex = i;
+        }
+        i++;
+    }
+
+    oldVal := factors[lowestIndex];
+    newVal := std::make_tuple(oldVal.get<0>() + oldVal.get<1>(), oldVal.get<1>());
+
+    factors[lowestIndex] = newVal;
+}
+
+// OKAY, the answer was just the LCM of 4091, 4001, 3923, 3847
+//  I entered it on a hunch.  But I don't really understand why
+//  it is correct. *shrug*  so done with this problem...
+//  247,023,644,760,071 is the LCM
+
+main: () -> int = {
+    // Map of current value, repeat interval
+    factors : std::vector<std::tuple<i64, int>> = ();
+    factors.push_back(std::make_tuple(4090, 4091));
+    factors.push_back(std::make_tuple(4000, 4001));
+    factors.push_back(std::make_tuple(3922, 3923));
+    factors.push_back(std::make_tuple(7692, 3847));
+
+    while !allEqual(factors) {
+        incLowest(factors);
+    }
+
+    result := factors[0].get<0>();
+
+    std::cout << "Result: " << result << std::endl;
+}
