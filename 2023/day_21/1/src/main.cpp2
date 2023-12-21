@@ -66,7 +66,7 @@ isValidMove: (data : std::vector<std::string>, position : Pos) -> bool = {
 }
 
 main: () -> int = {
-    MAX_DEPTH := 6;
+    MAX_DEPTH := 64;
     MOVE_OFFSETS : std::vector<Pos> = (Pos(-1, 0), Pos(0, 1), Pos(1, 0), Pos(0, -1));
 
     result := 0;
@@ -75,35 +75,28 @@ main: () -> int = {
     start := findStart(data);
     data[start.y][start.x] = '.';
 
-    startStep : Step = ();
-    startStep.position = start;
-    q : std::queue<Step> = ();
-    q.push(startStep);
+    currentDepthPositions : std::set<Pos> = ();
+    currentDepthPositions.insert(start);
 
-    while q.ssize() > 0 {
-        step := q.front();
-        if step.depth == MAX_DEPTH {
-            break;
-        }
-        q.pop();
+    depth := 0;
+    assert(depth != MAX_DEPTH); // Silence incorrect unused 'depth' and 'MAX_DEPTH'
+    while depth < MAX_DEPTH next depth++ {
+        nextDepthPositions : std::set<Pos> = ();
 
-        for MOVE_OFFSETS do (offset) {
-            pos := step.position;
-            pos += offset;
-            if isValidMove(data, pos) {
-                nextStep : Step = ();
-                nextStep.position = pos;
-                nextStep.depth = step.depth + 1;
-                q.push(nextStep);
-            }            
+        for currentDepthPositions do (position) {
+            for MOVE_OFFSETS do (offset) {
+                nextPosition := position;
+                nextPosition += offset;
+                if isValidMove(data, nextPosition) {
+                    nextDepthPositions.insert(nextPosition);
+                }            
+            }
         }
 
-        std::cout << step.depth << std::endl;
+        currentDepthPositions = nextDepthPositions;
     }
 
-    
-
-    result = q.ssize();
+    result = currentDepthPositions.ssize();
 
     std::cout << "Result: " << result << std::endl;
 }
