@@ -1,19 +1,28 @@
 
-// Example type
-Foo : type = {
-    bar: int;
+Pos : @value type = {
+    public x : int;
+    public y : int;
 
-     operator=: (out this, n: int) = {
-        bar = n;
+    operator=: (out this) = {
+        this.x = 0;
+        this.y = 0;
     }
 
-    testMethod: (this) -> int = {
-        return this.bar;
+    operator=: (out this, _x : int, _y : int) = {
+        this.x = _x;
+        this.y = _y;
+    }
+
+    operator+=: (inout this, rhs : Pos) = {
+        this.x += rhs.x;
+        this.y += rhs.y;
+    }
+
+    operator*=: (inout this, scalar : int) = {
+        this.x *= scalar;
+        this.y *= scalar;
     }
 }
-
-// Example trivial function
-hello: (msg: _) = std::cout << "Hello " << msg << std::endl;
 
 // Example of a for loop 
 // for std::views::iota(0, 10) do (i) {
