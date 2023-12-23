@@ -1,0 +1,231 @@
+min: (a : _, b : _) -> _ = {
+    if a < b {
+        return a;
+    }
+    return b;
+}
+
+max: (a : _, b : _) -> _ = {
+    if a > b {
+        return a;
+    }
+    return b;
+}
+
+Pos : @value type = {
+    public x : int;
+    public y : int;
+    public z : int;
+
+    operator=: (out this) = {
+        this.x = 0;
+        this.y = 0;
+        this.z = 0;
+    }
+
+    operator=: (out this, _x : int, _y : int, _z : int) = {
+        this.x = _x;
+        this.y = _y;
+        this.z = _z;
+    }
+
+    operator+=: (inout this, rhs : Pos) = {
+        this.x += rhs.x;
+        this.y += rhs.y;
+        this.z += rhs.z;
+    }
+
+    // operator*=: (inout this, scalar : int) = {
+    //     this.x *= scalar;
+    //     this.y *= scalar;
+    //     this.z *= scalar;
+    // }
+}
+
+Brick : @value type = {
+    public corner1 : Pos = ();
+    public corner2 : Pos = ();
+
+    getPositions: (this) -> std::vector<Pos> = {
+        result : std::vector<Pos> = ();
+        if isXBrick() {
+            minX := min(corner1.x, corner2.x);
+            maxX := max(corner1.x, corner2.x);
+            for std::views::iota(minX, maxX + 1) do (x) {
+                result.push_back(Pos(x, corner1.y, corner1.z));
+            }
+        }
+        else if isYBrick() {
+            minY := min(corner1.y, corner2.y);
+            maxY := max(corner1.y, corner2.y);
+            for std::views::iota(minY, maxY + 1) do (y) {
+                result.push_back(Pos(corner1.x, y, corner1.z));
+            }
+        }
+        else if isZBrick() {
+            minZ := min(corner1.z, corner2.z);
+            maxZ := max(corner1.z, corner2.z);
+            for std::views::iota(minZ, maxZ + 1) do (z) {
+                result.push_back(Pos(corner1.x, corner1.y, z));
+            }
+        }
+        return result;
+    }
+
+    moveDown: (this) -> Brick = {
+        result : Brick = ();
+        result.corner1 = Pos(corner1.x, corner1.y, corner1.z - 1);
+        result.corner2 = Pos(corner2.x, corner2.y, corner2.z - 1);
+        return result;
+    }
+
+    isXBrick: (this) -> bool = {
+        return corner1.x != corner2.x;
+    }
+
+    isYBrick: (this) -> bool = {
+        return corner1.y != corner2.y;
+    }
+
+    isZBrick: (this) -> bool = {
+        return corner1.z != corner2.z;
+    }
+}
+
+// Example of a for loop 
+// for std::views::iota(0, 10) do (i) {
+//     // Do something hopefully more expensive than expanding a std::range
+// }
+
+convertToIntArray: (data : std::vector<std::string>) -> std::vector<int> = {
+    result : std::vector<int> = ();
+
+    for data do (item) {
+        val := std::stoi(item);
+        result.push_back(val);
+    }
+
+    return result;
+}
+
+split: (s : std::string, delim : char) -> std::vector<std::string> = {
+    result : std::vector<std::string> = ();
+    ss : std::stringstream = (s);
+    item : std::string = "";
+
+    assert(ss.gcount() == 0); // Avoid unused variable 'ss' error/bug
+    while ss.getline(item, delim) {
+        result.push_back(item);
+    }
+
+    return result;
+}
+
+readFile: (path: std::string) -> std::vector<std::string> = {
+    data : std::vector<std::string> = ();
+    input : std::ifstream = (path);
+    line : std::string = "";
+
+    while (std::getline(input, line)) {
+        data.push_back(line);
+    }
+
+    input.close();
+    return data;
+}
+
+compress: (inout bricks : std::vector<Brick>) -> bool = {
+    anyChanges := false;
+    atRestIndex := -1;
+
+    while atRestIndex < bricks.ssize() {
+        i := atRestIndex + 1;
+        while i < bricks.ssize() {
+
+            if isAtRest(bricks, bricks[i]) {
+                atRestIndex++;
+                brick := bricks[i];
+                bricks.erase(bricks.begin() + i);
+                bricks.insert(bricks.begin() + atRestIndex, brick);
+                break;
+            }
+            else {
+                newBrick := bricks[i].moveDown();
+                bricks[i] = newBrick;
+            }
+            i++;
+        }
+    }
+
+    return anyChanges;
+}
+
+isAtRest: (bricks : std::vector<Brick>, brick : Brick) -> bool = {
+    testPositions : std::vector<Pos> = ();
+    if brick.isZBrick() {
+        minZ := min(brick.corner1.z, brick.corner2.z);
+        testPositions.push_back(Pos(brick.corner1.x, brick.corner2.y, minZ - 1));
+    }
+    else {
+        brickPositions := brick.getPositions();
+        for brickPositions do (brickPosition) {
+            testPositions.push_back(Pos(brickPosition.x, brickPosition.y, brickPosition.z - 1));
+        }
+    }
+
+    // If we're at the bottom we're at rest
+    for testPositions do (testPosition) {
+        if testPosition.z == 0 {
+            return true;
+        }
+    }
+
+    occupiedPositions := getOccupiedPositions(bricks, brick);
+
+    for testPositions do (testPosition) {
+        if occupiedPositions.contains(testPosition) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+getOccupiedPositions: (bricks : std::vector<Brick>, exceptionBrick : Brick) -> std::set<Pos> = {
+    occupiedPositions : std::set<Pos> = ();
+
+    for bricks do (brick) {
+        if brick != exceptionBrick {
+            brickPositions := brick.getPositions();
+
+            for brickPositions do (brickPosition) {
+                occupiedPositions.insert(brickPosition);
+            }
+        }
+    }
+    return occupiedPositions;
+}
+
+main: () -> int = {
+    result := 0;
+    data := readFile("input.txt");
+    bricks : std::vector<Brick> = ();
+
+    for data do (line) {
+        parts := line.split('~');
+        corner1Str := parts[0].split(',');
+        corner2Str := parts[1].split(',');
+        corner1Array := convertToIntArray(corner1Str);
+        corner2Array := convertToIntArray(corner2Str);
+
+        brick : Brick = ();
+        brick.corner1 = Pos(corner1Array[0], corner1Array[1], corner1Array[2]);
+        brick.corner2 = Pos(corner2Array[0], corner2Array[1], corner2Array[2]);
+        bricks.push_back(brick);
+    }
+
+    didCompress := compress(bricks);
+    std::cout << didCompress << std::endl;
+
+    std::cout << "Result: " << result << std::endl;
+}
