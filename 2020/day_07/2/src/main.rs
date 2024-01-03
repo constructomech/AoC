@@ -1,6 +1,5 @@
 use std::{
     collections::HashMap,
-    collections::HashSet,
     fs::File,
     io::BufRead,
     io::BufReader,
@@ -34,36 +33,16 @@ impl Graph {
         entry.insert(target.to_string(), quantity);
     }
 
-    fn bags_containing_at_least(&self, target_color: &str, min_quantity: usize) -> HashSet<String> {
-        let mut result = HashSet::new();
-        for (source, contained_bags) in &self.edges {
-            if contains_at_least(contained_bags, target_color, min_quantity, &self.edges) {
-                result.insert(source.clone());
+    fn bags_within(&self, target_color: &str) -> usize {
+        let mut result = 0;
+        if let Some(contained_bags) = self.edges.get(target_color) {
+            for (color, quantity) in contained_bags {
+                result += quantity + quantity * self.bags_within(color);
             }
         }
         result
     }
 }
-
-fn contains_at_least(
-    contained_bags: &HashMap<String, usize>,
-    target_color: &str,
-    min_quantity: usize,
-    graph: &HashMap<String, HashMap<String, usize>>,
-) -> bool {
-    for (color, quantity) in contained_bags {
-        if color == target_color && *quantity >= min_quantity {
-            return true;
-        }
-        if let Some(next_contained_bags) = graph.get(color) {
-            if contains_at_least(next_contained_bags, target_color, min_quantity, graph) {
-                return true;
-            }
-        }
-    }
-    false
-}
-
 
 fn main() {
     let lines = lines_from_file("input.txt");
@@ -91,8 +70,7 @@ fn main() {
         }
     }
 
-    let bags = graph.bags_containing_at_least("shiny gold", 1);
-    let result = bags.len();
+    let result = graph.bags_within("shiny gold");
 
     println!("Result: {}", result);
 }
