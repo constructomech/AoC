@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Zig Debug",
+            "type": "lldb",
+            "request": "launch",
+            // Resolved by CMake Tools:
+            "program": "${workspaceFolder}/zig-out/bin/zig",
+            "args": [],
+            // set current directory to scripts folder
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": false
+        }
+    ]
+}
