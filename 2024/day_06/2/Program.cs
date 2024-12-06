@@ -1,10 +1,16 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Immutable;
+using System.Diagnostics;
 
 
 var right = new Vec2(1, 0);
 var left = new Vec2(-1, 0);
 var up = new Vec2(0, -1);
 var down = new Vec2(0, 1);
+
+var CardinalAdjacent = ImmutableList.Create<Vec2>(new(1, 0), new(0, 1), new(-1, 0), new(0, -1));
+var DiagonallyAdjacent = ImmutableList.Create<Vec2>(new(-1, -1), new(-1, 1), new(1, 1), new(1, -1));
+var AllAdjacent = CardinalAdjacent.AddRange(DiagonallyAdjacent);
+
 
 Stopwatch watch = new Stopwatch();
 watch.Start();
@@ -33,7 +39,7 @@ Cell GetAt(Cell[,] map, Vec2 pos) {
     return Cell.Open;
 }
 
-void PrintMap(Cell[,] map, List<(Vec2 pos, Vec2 dir)> path) { 
+void PrintMap(Cell[,] map, HashSet<(Vec2 pos, Vec2 dir)> path) { 
 
     for (int y = 0; y < map.GetLength(1); y++) {
         for (int x = 0; x < map.GetLength(0); x++) {
@@ -55,9 +61,9 @@ void PrintMap(Cell[,] map, List<(Vec2 pos, Vec2 dir)> path) {
     Console.WriteLine();
 }
 
-bool Simulate(Cell[,] map, Vec2 currentPos, Vec2 currentDirection) {
+(bool loop, HashSet<(Vec2 pos, Vec2 direction)>) Simulate(Cell[,] map, Vec2 currentPos, Vec2 currentDirection) {
 
-    var path = new List<(Vec2 pos, Vec2 direction)>();
+    var path = new HashSet<(Vec2 pos, Vec2 direction)>();
     path.Add((currentPos, currentDirection));
 
     while (currentPos.X >= 0 && currentPos.X < map.GetLength(0) && currentPos.Y >= 0 && currentPos.Y < map.GetLength(1)) {
@@ -71,12 +77,12 @@ bool Simulate(Cell[,] map, Vec2 currentPos, Vec2 currentDirection) {
             currentDirection = TurnRight(currentDirection);
         }
         if (path.Contains((currentPos, currentDirection))) {
-            return true;
+            return (true, path);
         }
         path.Add((currentPos, currentDirection));
     }
     //PrintMap(map, path);
-    return false;
+    return (false, path);
 }
 
 void Run(string[] input) {
@@ -100,18 +106,29 @@ void Run(string[] input) {
         }
     }
 
-    for (int y = 0; y < map.GetLength(1); y++) {
-        for (int x = 0; x < map.GetLength(0); x++) {
-            if (map[x, y] == Cell.Open) {
-                map[x, y] = Cell.Obstruction;
+    (_, var originalPath) = Simulate(map, startPos, startDirection);
+    PrintMap(map, originalPath);
 
-                bool loop = Simulate(map, startPos, startDirection);
-                if (loop) {
-                    result++;
-                }
+    var candidatePositions = new HashSet<Vec2>();
+    foreach ((var pos, var direction) in originalPath) {
+        var targetPos = pos + direction;
 
-                map[x, y] = Cell.Open;
+        if (targetPos.X >= 0 && targetPos.X < map.GetLength(0) && targetPos.Y >= 0 && targetPos.Y < map.GetLength(1)) {
+            candidatePositions.Add(pos + direction);
+        }
+    }
+
+    foreach (var candidatePosition in candidatePositions) {
+
+        if (map[candidatePosition.X, candidatePosition.Y] == Cell.Open) {
+            map[candidatePosition.X, candidatePosition.Y] = Cell.Obstruction;
+
+            (var loop, _) = Simulate(map, startPos, startDirection);
+            if (loop) {
+                result++;
             }
+
+            map[candidatePosition.X, candidatePosition.Y] = Cell.Open;
         }
     }
 
