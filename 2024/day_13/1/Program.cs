@@ -35,22 +35,21 @@ void Run(string input) {
 
         var minCost = int.MaxValue;
 
-        var increment = gcf(m.ax, m.ay);
-        for (var cheapPresses = 0; cheapPresses < 100; cheapPresses++) {
+        for (var buttonAPresses = 0; buttonAPresses < 100; buttonAPresses++) {
 
-            var numeratorX = m.px - cheapPresses * m.bx;
-            var numeratorY = m.py - cheapPresses * m.by;
+            var numeratorX = m.px - buttonAPresses * m.bx;
+            var numeratorY = m.py - buttonAPresses * m.by;
 
             if (numeratorX % m.ax != 0 || numeratorY % m.ay != 0) {
                 continue;
             }
-            var expensivePressesToAlignX = numeratorX / m.ax;
-            var expensivePressesToAlignY = numeratorY / m.ay;
+            var buttonBPressesToAlignX = numeratorX / m.ax;
+            var buttonBPressesToAlignY = numeratorY / m.ay;
 
-            if (expensivePressesToAlignX == expensivePressesToAlignY) {
-                Console.WriteLine($"\tFound: {expensivePressesToAlignX} {cheapPresses}");
+            if (buttonBPressesToAlignX == buttonBPressesToAlignY) {
+                Console.WriteLine($"\tFound: {buttonBPressesToAlignX} {buttonAPresses}");
 
-                var cost = 3 * expensivePressesToAlignX + cheapPresses;
+                var cost = 3 * buttonBPressesToAlignX + buttonAPresses;
                 if (cost < minCost) {
                     minCost = cost;
                     break;
@@ -65,7 +64,6 @@ void Run(string input) {
         machineNum++;
     }
     Console.WriteLine($"Total cost: {result}");
-
 }
 
 
