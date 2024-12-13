@@ -1,7 +1,5 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography.X509Certificates;
 
 
 Stopwatch watch = new Stopwatch();
@@ -12,27 +10,18 @@ watch.Stop();
 Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
 
-var CardinalAdjacent = ImmutableList.Create<Vec2>(new(1, 0), new(0, 1), new(-1, 0), new(0, -1));
-var DiagonallyAdjacent = ImmutableList.Create<Vec2>(new(-1, -1), new(-1, 1), new(1, 1), new(1, -1));
-var AllAdjacent = CardinalAdjacent.AddRange(DiagonallyAdjacent);
-
 void Run(string[] input) {
-    var width = input[0].Length;
-    var height = input.Length;
+    var board = FixedBoard<char>.FromString(input);
     var antennas = new Dictionary<char, List<Vec2>>();
 
-    for (var y = 0; y < height; y++) {
-        for (var x = 0; x < width; x++) {
-            var node = input[y][x];
-
-            if (node != '.') {
-                antennas.TryAdd(node, new List<Vec2>());
-                antennas[node].Add(new Vec2(x, y));
-            }
+    board.ForEachCell((pos, value) => {
+        if (value != '.') {
+            antennas.TryAdd(value, new List<Vec2>());
+            antennas[value].Add(pos);
         }
-    }
+    });
 
-    var antinodes = new List<Vec2>();
+    var antinodes = new HashSet<Vec2>();
 
     foreach ((_, var points) in antennas) {
         foreach (var permutation in GetPermutations(points, 2)) {
@@ -43,49 +32,18 @@ void Run(string[] input) {
             var r1 = p1 - vecBetween;
             var r2 = p2 + vecBetween;
 
-            foreach (var r in new List<Vec2> {r1, r2}) {
-                if (r.X >= 0 && r.X < width && r.Y >= 0 && r.Y < height) {
+            foreach (var r in new Vec2[] {r1, r2}) {
+                if (board.IsInBounds(r)) {
                     antinodes.Add(r);
                 }
             }
         }
     }
 
-    var result = 0;
+    board.Print(c => c, antinodes.ToList(), '#');
 
-    for (var y = 0; y < height; y++) {
-        for (var x = 0; x < width; x++) {
-            var node = input[y][x];
-
-            if (antinodes.Contains(new Vec2(x, y))) {
-                node = '#';
-                result++;
-            }
-
-            Console.Write(node);
-        }
-        Console.WriteLine();
-    }
-
-    Console.WriteLine($"Result: {result}");
+    Console.WriteLine($"Result: {antinodes.Count}");
 }
-
-
-// MATH helpers
-
-static int gcf(int a, int b) {
-    while (b != 0) {
-        var temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
-}
-
-static int lcm(int a, int b) => (a / gcf(a, b)) * b;
-
-// For curve fitting, see the MathNet.Numerics package
-
 
 // PERMUTATIONS
 
@@ -104,59 +62,6 @@ static IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> items, int 
     }
 }
 
-
-// DIRECTION helpers
-
-Direction ParseDirection(char c) {
-    return c switch {
-        '^' => Direction.Up,
-        'v' => Direction.Down,
-        '<' => Direction.Left,
-        '>' => Direction.Right,
-        _ => throw new Exception("Invalid direction")
-    };
-}
-
-Vec2 OffsetFromDirection(Direction direction) {
-    return direction switch {
-        Direction.Up => new(0, -1),
-        Direction.Down => new(0, 1),
-        Direction.Left => new(-1, 0),
-        Direction.Right => new(1, 0),
-        _ => throw new Exception("Invalid direction")
-    };
-}
-
-enum Direction { Up, Down, Left, Right }
-
-
-// COMPARERS 
-
-// For a priority queue optimizing for highest cost
-class InverseComparer : IComparer<int> {
-    public int Compare(int lhs, int rhs) => rhs.CompareTo(lhs);
-}
-
-// For using List<string> as a key in a dictionary or set
-class ListComparer<T> : IEqualityComparer<List<T>>
-{
-    public bool Equals(List<T>? x, List<T>? y) => x == null || y == null ? false : x.SequenceEqual(y);
-
-    public int GetHashCode(List<T> obj) {
-        var hashcode = 0;
-        foreach (T t in obj) {
-            var lineHash = t != null ? t.GetHashCode() : 0;
-            hashcode ^= lineHash + BitConverter.ToInt32(_hashSalt) + (hashcode << 6) + (hashcode >> 2);
-        }
-        return hashcode;
-    }
-
-    private static readonly Byte[] _hashSalt = BitConverter.GetBytes(0x9e3779b9);
-}
-
-
-// VECTORS
-
 public record Vec2 (int X, int Y) {
     public static Vec2 FromString(string s) {
         var parts = s.Split(',');
@@ -170,15 +75,68 @@ public record Vec2 (int X, int Y) {
     public static Vec2 operator *(Vec2 a, int b) => new(a.X * b, a.Y * b);
 }
 
-public record Vec3 (int X, int Y, int Z) {
-    public static Vec3 FromString(string s) {
-        var parts = s.Split(',');
-        return new(int.Parse(parts[0]), int.Parse(parts[1]), int.Parse(parts[2]));
+public class FixedBoard<T> {
+    public FixedBoard(int width, int height) => _data = new T[width, height];
+
+    public int Width { get => _data.GetLength(0); }
+    public int Height { get => _data.GetLength(1); }
+
+    public T this[int x, int y] { get => _data[x, y]; set => _data[x, y] = value; }
+    public T this[Vec2 pos] { get => _data[pos.X, pos.Y]; set => _data[pos.X, pos.Y] = value; }
+
+    public bool IsInBounds(int x, int y) => x >= 0 && y >= 0 && x < this.Width && y < this.Height;
+    public bool IsInBounds(Vec2 pos) => pos.X >= 0 && pos.Y >= 0 && pos.X < this.Width && pos.Y < this.Height;
+
+    public void ForEachCell(Action<int, int, T> action) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                action(x, y, this._data[x, y]);
+            }
+        }
     }
 
-    public static Vec3 operator +(Vec3 a, Vec3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
+    public void ForEachCell(Action<Vec2, T> action) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                action(new Vec2(x, y), this._data[x, y]);
+            }
+        }
+    }
 
-    public static Vec3 operator -(Vec3 a, Vec3 b) => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+    public void Print(Func<T, char> resovleChar) => Print(resovleChar, null, default(T));
+    public void Print(Func<T, char> resovleChar, List<Vec2>? overridePositions, T? overrideValue) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                char printVal = resovleChar(_data[x, y]);
+                if (overridePositions != null && overridePositions.Contains(new Vec2(x, y))) {
+                    if (overrideValue == null) throw new ArgumentNullException(nameof(overrideValue));
+                    printVal = resovleChar(overrideValue);
+                }
+                Console.Write(printVal);
+            }
+            Console.WriteLine();
+        }
+    }
 
-    public static Vec3 operator *(Vec3 a, int b) => new(a.X * b, a.Y * b, a.Z * b);
+    private void PopulateBoard(string[] input, Func<char, T> transform) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                this._data[x, y] = transform(input[y][x]);
+            }
+        }
+    }
+
+    public static FixedBoard<char> FromString(string[] input) {
+        var board = new FixedBoard<char>(input.Length, input.Length > 0 ? input[0].Length : 0);
+        board.PopulateBoard(input, c => c);
+        return board;
+    }
+
+    public static FixedBoard<T> FromString(string[] input, Func<char, T> transform) {
+        var board = new FixedBoard<T>(input.Length, input.Length > 0 ? input[0].Length : 0);
+        board.PopulateBoard(input, transform);
+        return board;
+    }
+    
+    private T[,] _data;
 }
