@@ -9,6 +9,41 @@ Run(input);
 watch.Stop();
 Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
+long SolvePart1((long ax, long ay, long bx, long by, long px, long py) m) {
+    var minCost = long.MaxValue;
+    // I should be able to consrain the max a button presses, but I'm not having luck
+    //   with this optimization.
+    long maxAPresses = Math.Max(m.px / m.ax, m.py / m.ay) + 1;
+    for (var buttonAPresses = 0L; buttonAPresses < 100; buttonAPresses++) {
+
+        var numeratorX = m.px - buttonAPresses * m.bx;
+        var numeratorY = m.py - buttonAPresses * m.by;
+
+        if (numeratorX % m.ax != 0 || numeratorY % m.ay != 0) {
+            continue;
+        }
+        var buttonBPressesToAlignX = numeratorX / m.ax;
+        var buttonBPressesToAlignY = numeratorY / m.ay;
+
+        if (buttonBPressesToAlignX == buttonBPressesToAlignY) {
+            Console.WriteLine($"\tFound: {buttonBPressesToAlignX} {buttonAPresses}");
+
+            var cost = 3 * buttonBPressesToAlignX + buttonAPresses;
+            if (cost < minCost) {
+                minCost = cost;
+                break;
+            }
+        }
+    }
+
+    return minCost;
+}
+
+(long x, long y) FindUberBlockSize((long ax, long ay, long bx, long by, long px, long py) m) {
+    // var lcmX = lcm(m.ax, m.bx);
+    // var lcmY = lcm(m.ay, m.by);
+    return (100000000000L, 100000000000L);
+}
 
 void Run(string input) {
 
@@ -33,34 +68,24 @@ void Run(string input) {
 
     foreach (var m in machines) {
 
-        var minCost = int.MaxValue;
+        var uberBlockSize = FindUberBlockSize(m);
+        var maxUberBlocks = Math.Min(m.px / uberBlockSize.x, m.py / uberBlockSize.y);
+        var uberAPresses = uberBlockSize.x / m.ax * maxUberBlocks; // will be the same as uberBlockSize.y / m.ay
+        var uberBPresses = uberBlockSize.x / m.bx * maxUberBlocks; // will be the same as uberBlockSize.y / m.by
+        var uberBlockCost = Math.Min(uberAPresses * 3, uberBPresses);
+        
+        // var uberCost = Math.Min()
 
-        for (var buttonAPresses = 0; buttonAPresses < 100; buttonAPresses++) {
+        var px = m.px - (maxUberBlocks * uberBlockSize.x);
+        var py = m.py - (maxUberBlocks * uberBlockSize.y);
 
-            var numeratorX = m.px - buttonAPresses * m.bx;
-            var numeratorY = m.py - buttonAPresses * m.by;
+        var minCost = SolvePart1((m.ax, m.ay, m.bx, m.by, px, py));
 
-            if (numeratorX % m.ax != 0 || numeratorY % m.ay != 0) {
-                continue;
-            }
-            var buttonBPressesToAlignX = numeratorX / m.ax;
-            var buttonBPressesToAlignY = numeratorY / m.ay;
-
-            if (buttonBPressesToAlignX == buttonBPressesToAlignY) {
-                Console.WriteLine($"\tFound: {buttonBPressesToAlignX} {buttonAPresses}");
-
-                var cost = 3 * buttonBPressesToAlignX + buttonAPresses;
-                if (cost < minCost) {
-                    minCost = cost;
-                    break;
-                }
-            }
+        if (minCost != long.MaxValue) {
+            Console.WriteLine($"Machine {machineNum}: uber: {uberBlockCost} remain {minCost}");
+            result += (minCost + uberBlockCost);
         }
 
-        if (minCost != int.MaxValue) {
-            Console.WriteLine($"Machine {machineNum}: cost {minCost}");
-            result += minCost;
-        }
         machineNum++;
     }
     Console.WriteLine($"Total cost: {result}");
