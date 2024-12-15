@@ -186,13 +186,13 @@ public class FixedBoard<T> {
     }
 
     public static FixedBoard<char> FromString(string[] input) {
-        var board = new FixedBoard<char>(input.Length, input.Length > 0 ? input[0].Length : 0);
+        var board = new FixedBoard<char>(input.Length > 0 ? input[0].Length : 0, input.Length);
         board.PopulateBoard(input, c => c);
         return board;
     }
 
     public static FixedBoard<T> FromString(string[] input, Func<char, T> transform) {
-        var board = new FixedBoard<T>(input.Length, input.Length > 0 ? input[0].Length : 0);
+        var board = new FixedBoard<T>(input.Length > 0 ? input[0].Length : 0, input.Length);
         board.PopulateBoard(input, transform);
         return board;
     }
