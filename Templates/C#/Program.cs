@@ -139,6 +139,7 @@ public class FixedBoard<T> {
     public int Width { get => _data.GetLength(0); }
     public int Height { get => _data.GetLength(1); }
 
+    public Vec2 Extents { get => new Vec2(_data.GetLength(0), _data.GetLength(1)); }
     public T this[int x, int y] { get => _data[x, y]; set => _data[x, y] = value; }
     public T this[Vec2 pos] { get => _data[pos.X, pos.Y]; set => _data[pos.X, pos.Y] = value; }
 
