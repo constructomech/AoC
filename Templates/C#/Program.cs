@@ -199,3 +199,75 @@ public class FixedBoard<T> {
     
     private T[,] _data;
 }
+
+public class Graph<TData> {
+    public int VertexCount { get => _verticies.Count; }
+
+    public int AddVertex(TData data) {
+        this._verticies.Add((data, new List<(int vertexIndex, int weight)>()));
+        return this._verticies.Count - 1;
+    }
+
+    public void AddEdge(int lhsVertexIndex, int rhsVertexIndex, int weight) {
+        this._verticies[lhsVertexIndex].edges.Add((rhsVertexIndex, weight));
+    }
+
+    public (TData data, List<(int vertexIndex, int weight)> edges) GetVertex(int index) {
+        return _verticies[index];
+    }
+
+    IEnumerable<(TData data, List<(int vertexIndex, int weight)> edges)> SelectVerticies(Func<TData, List<(int vertexIndex, int weight)>, bool> predicate) {
+        foreach (var vertex in _verticies) {
+            if (predicate(vertex.data, vertex.edges)) {
+                yield return vertex;
+            }
+        }
+    }
+
+    private List<(TData data, List<(int vertexIndex, int weight)> edges)> _verticies = 
+        new List<(TData data, List<(int vertexIndex, int weight)> edges)>();
+}
+
+public class DijkstraAlgorithm<TData> {
+    public static int[] Dijkstra(Graph<TData> graph, int source) {
+        var vertices = graph.VertexCount;
+        var distances = new int[vertices];
+        var shortestPathTreeSet = new bool[vertices];
+
+        for (int i = 0; i < vertices; i++) {
+            distances[i] = int.MaxValue;
+            shortestPathTreeSet[i] = false;
+        }
+
+        distances[source] = 0;
+
+        for (int count = 0; count < vertices - 1; count++) {
+
+            int u = MinimumDistance(distances, shortestPathTreeSet);
+            shortestPathTreeSet[u] = true;
+
+            foreach ((int v, int weight) in graph.GetVertex(u).edges) {
+
+                if (!shortestPathTreeSet[v] && distances[u] != int.MaxValue && distances[u] + weight < distances[v]) {
+                    distances[v] = distances[u] + weight;
+                }
+            }
+        }
+
+        return distances;
+    }
+
+    private static int MinimumDistance(int[] distances, bool[] shortestPathTreeSet) {
+        int min = int.MaxValue, minIndex = -1;
+
+        for (int v = 0; v < distances.Length; v++) {
+
+            if (!shortestPathTreeSet[v] && distances[v] <= min) {
+                min = distances[v];
+                minIndex = v;
+            }
+        }
+
+        return minIndex;
+    }
+}
