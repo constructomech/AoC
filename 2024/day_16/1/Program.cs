@@ -1,11 +1,5 @@
-﻿using System.Collections.Immutable;
-using System.Diagnostics;
-using System.Security.AccessControl;
+﻿using System.Diagnostics;
 
-
-var CardinalAdjacent = ImmutableList.Create<Vec2>(new(1, 0), new(0, 1), new(-1, 0), new(0, -1));
-var DiagonallyAdjacent = ImmutableList.Create<Vec2>(new(-1, -1), new(-1, 1), new(1, 1), new(1, -1));
-var AllAdjacent = CardinalAdjacent.AddRange(DiagonallyAdjacent);
 
 Stopwatch watch = new Stopwatch();
 watch.Start();
@@ -18,100 +12,60 @@ int FindShortestCostPath(FixedBoard<char> board, Vec2 start, Vec2 target) {
 
     int minCost = int.MaxValue;
     var bestCosts = new Dictionary<(Vec2 pos, Direction dir), int>();
-    var startPath = new PathNode(start, null);
+    var startPath = new PathNode(start, Direction.Right, null);
 
-    var q = new Queue<(Vec2 pos, Direction dir, int cost, PathNode path)>();
-    q.Enqueue((start, Direction.Right, 0, startPath));
+    var pq = new PriorityQueue<PathNode, int>();
+    pq.Enqueue(startPath, 0);
 
-    while (q.Count > 0) {
-        (var pos, var dir, var cost, var path) = q.Dequeue();
+    int cost;
+    PathNode path;
+    while (pq.TryPeek(out path, out cost)) {        
+        pq.Dequeue();
+        bestCosts[(path.Pos, path.Dir)] = cost;
 
-        if (pos == target) {
-            if (cost < minCost) {
-                minCost = cost;
-            }
-            continue;
+        if (path.Pos == target) {
+            return cost;
         }
 
         // Console.WriteLine($"Cost: {cost}");
-        // board.Print(c => c, new List<Vec2>() { pos }, '@');
-
-        int bestCost;
-        if (bestCosts.TryGetValue((pos, dir), out bestCost)) {
-            if (bestCost < cost) {
-                continue;
-            }
-        }
-        else {
-            bestCosts.Add((pos, dir), cost);
-        }
+        // board.Print(c => c, new List<Vec2>() { path.Pos }, '@');
 
         // Go forward
-        var nextPosInDir = pos + OffsetFromDirection(dir);
-        if (board[nextPosInDir] == '.' && !path.GetReversePath().Contains(nextPosInDir)) {
-            var nextPath = new PathNode(nextPosInDir, path);
-            q.Enqueue((nextPosInDir, dir, cost + 1, nextPath));
+        var nextPosInDir = path.Pos + OffsetFromDirection(path.Dir);
+        if (board[nextPosInDir] == '.' && !path.Contains(nextPosInDir)) {
+
+            int bestCost;
+            if (!bestCosts.TryGetValue((nextPosInDir, path.Dir), out bestCost)) bestCost = int.MaxValue;
+
+            var moveCost = cost + 1;
+            if (moveCost < bestCost) {
+                var nextPath = new PathNode(nextPosInDir, path.Dir, path);
+                pq.Enqueue(nextPath, moveCost);
+            }
         }
 
         // Turn right and left
-        foreach (var turnDir in new Direction[] { TurnRight(dir), TurnLeft(dir) }) {
+        foreach (var turnDir in new Direction[] { TurnRight(path.Dir), TurnLeft(path.Dir) }) {
+
             // Only check turns if we could actually proceed in this direction.
-            var nextPosInTurnDir = pos + OffsetFromDirection(turnDir);
-            if (board[nextPosInTurnDir] == '.' && !path.GetReversePath().Contains(nextPosInTurnDir)) {
-                q.Enqueue((pos, turnDir, cost + 1000, path));
+            var nextPosInTurnDir = path.Pos + OffsetFromDirection(turnDir);
+
+            if (board[nextPosInTurnDir] == '.' && !path.Contains(nextPosInTurnDir, turnDir)) {
+
+                int bestCost;
+                if (!bestCosts.TryGetValue((path.Pos, turnDir), out bestCost)) bestCost = int.MaxValue;
+
+                var moveCost = cost + 1000;
+                if (moveCost < bestCost) {
+                    var nextPath = new PathNode(path.Pos, turnDir, path);
+                    pq.Enqueue(nextPath, moveCost);
+                }
             }
-        }    
+        }
     }
 
     return minCost;
 }
-
-// (int cost, PathNode fullPath) FindShortestCostPath(FixedBoard<char> board, PathNode curPath, Vec2 curPos, Direction curDir, int curCost, Vec2 target, Dictionary<(Vec2 curPos, Direction curDir), (int cost, PathNode path)> cache) {
-//     if (curPos == target) {
-//         return (curCost, curPath);
-//     }
-
-//     (int cost, PathNode fullPath) cachedResult;
-//     if (cache.TryGetValue((curPos, curDir), out cachedResult)) {
-//         return cachedResult;
-//     }
-    
-//     // Console.WriteLine($"Cost: {curCost}");
-//     // var pathPositions = curPath.GetReversePath().ToList();
-//     // board.Print(c => c, pathPositions, '+');
-
-//     PathNode chosenPath = null;
-//     var minCost = int.MaxValue;
-//     var nextPosInDir = curPos + OffsetFromDirection(curDir);
-
-//     // Go forward
-//     if (board[nextPosInDir] == '.' && !curPath.GetReversePath().Contains(nextPosInDir)) {
-        
-//         var path = new PathNode(nextPosInDir, curPath);
-//         var (cost, fullPath) = FindShortestCostPath(board, path, nextPosInDir, curDir, curCost + 1, target, cache);
-//         if (cost < minCost) {
-//             chosenPath = fullPath;
-//             minCost = cost;
-//         }
-//     }
-
-//     // Turn right and left
-//     foreach (var turnDir in new Direction[] { TurnRight(curDir), TurnLeft(curDir) }) {
-//         // Only check turns if we could actually proceed in this direction.
-//         var nextPosInTurnDir = curPos + OffsetFromDirection(turnDir);
-//         if (board[nextPosInTurnDir] == '.' && !curPath.GetReversePath().Contains(nextPosInTurnDir)) {
-
-//             var (cost, fullPath) = FindShortestCostPath(board, curPath, curPos, turnDir, curCost + 1000, target, cache);
-//             if (cost < minCost) {
-//                 chosenPath = fullPath;
-//                 minCost = cost;
-//             }
-//         }
-//     }
-
-//     cache.Add((curPos, curDir), (minCost, chosenPath));
-//     return (minCost, chosenPath);
-// }
 
 void Run(string[] input) {
     var start = new Vec2(0, 0);
@@ -133,52 +87,6 @@ void Run(string[] input) {
     Console.WriteLine($"Result: {cost}");
 }
 
-
-// MATH helpers
-
-static int gcf(int a, int b) {
-    while (b != 0) {
-        var temp = b;
-        b = a % b;
-        a = temp;
-    }
-    return a;
-}
-
-static int lcm(int a, int b) => (a / gcf(a, b)) * b;
-
-// For curve fitting, see the MathNet.Numerics package
-
-
-// PERMUTATIONS
-
-static IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> items, int count) {
-    var i = 0;
-    foreach(var item in items) {
-        if(count == 1) {
-            yield return new T[] { item };
-        }
-        else {
-            foreach(var result in GetPermutations(items.Skip(i + 1), count - 1)) {
-                yield return new T[] { item }.Concat(result);
-            }
-        }
-        i++;
-    }
-}
-
-
-// DIRECTION helpers
-
-Direction ParseDirection(char c) {
-    return c switch {
-        '^' => Direction.Up,
-        'v' => Direction.Down,
-        '<' => Direction.Left,
-        '>' => Direction.Right,
-        _ => throw new Exception("Invalid direction")
-    };
-}
 
 Vec2 OffsetFromDirection(Direction direction) {
     return direction switch {
@@ -210,34 +118,8 @@ Direction TurnLeft(Direction dir) {
     };
 }
 
-enum Direction { Up, Down, Left, Right }
+public enum Direction { Up, Down, Left, Right }
 
-// COMPARERS 
-
-// For a priority queue optimizing for highest cost
-class InverseComparer : IComparer<int> {
-    public int Compare(int lhs, int rhs) => rhs.CompareTo(lhs);
-}
-
-// For using List<string> as a key in a dictionary or set
-class ListComparer<T> : IEqualityComparer<List<T>>
-{
-    public bool Equals(List<T>? x, List<T>? y) => x == null || y == null ? false : x.SequenceEqual(y);
-
-    public int GetHashCode(List<T> obj) {
-        var hashcode = 0;
-        foreach (T t in obj) {
-            var lineHash = t != null ? t.GetHashCode() : 0;
-            hashcode ^= lineHash + BitConverter.ToInt32(_hashSalt) + (hashcode << 6) + (hashcode >> 2);
-        }
-        return hashcode;
-    }
-
-    private static readonly Byte[] _hashSalt = BitConverter.GetBytes(0x9e3779b9);
-}
-
-
-// VECTORS
 
 public record Vec2 (int X, int Y) {
     public static Vec2 FromString(string s) {
@@ -253,34 +135,36 @@ public record Vec2 (int X, int Y) {
 }
 
 public class PathNode {
-    public PathNode(Vec2 pos, PathNode? prior) {
+    public PathNode(Vec2 pos, Direction dir, PathNode? prior) {
         this._pos = pos;
+        this._dir = dir;
         this._prior = prior;
     }
 
-    public IEnumerable<Vec2> GetReversePath() {
+    public Vec2 Pos { get => this._pos; }
+    public Direction Dir { get => this._dir; }
+
+    public bool Contains(Vec2 pos) {
         var current = this;
         while (current != null) {
-            yield return current._pos;
+            if (current._pos == pos) return true;
             current = current._prior;
         }
+        return false;
+    }
+
+    public bool Contains(Vec2 pos, Direction dir) {
+        var current = this;
+        while (current != null) {
+            if (current._pos == pos && current._dir == dir) return true;
+            current = current._prior;
+        }
+        return false;
     }
 
     private Vec2 _pos;
+    private Direction _dir;
     private PathNode? _prior;
-}
-
-public record Vec3 (int X, int Y, int Z) {
-    public static Vec3 FromString(string s) {
-        var parts = s.Split(',');
-        return new(int.Parse(parts[0]), int.Parse(parts[1]), int.Parse(parts[2]));
-    }
-
-    public static Vec3 operator +(Vec3 a, Vec3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
-
-    public static Vec3 operator -(Vec3 a, Vec3 b) => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
-
-    public static Vec3 operator *(Vec3 a, int b) => new(a.X * b, a.Y * b, a.Z * b);
 }
 
 public class FixedBoard<T> {
@@ -348,141 +232,4 @@ public class FixedBoard<T> {
     }
     
     private T[,] _data;
-}
-
-public class Graph<TData> {
-    public int VertexCount { get => _verticies.Count; }
-
-    public int AddVertex(TData data) {
-        this._verticies.Add((data, new List<(int vertexIndex, int weight)>()));
-        return this._verticies.Count - 1;
-    }
-
-    public void AddEdge(int lhsVertexIndex, int rhsVertexIndex, int weight) {
-        this._verticies[lhsVertexIndex].edges.Add((rhsVertexIndex, weight));
-    }
-
-    public (TData data, List<(int vertexIndex, int weight)> edges) GetVertex(int index) {
-        return _verticies[index];
-    }
-
-    IEnumerable<(TData data, List<(int vertexIndex, int weight)> edges)> SelectVerticies(Func<TData, List<(int vertexIndex, int weight)>, bool> predicate) {
-        foreach (var vertex in _verticies) {
-            if (predicate(vertex.data, vertex.edges)) {
-                yield return vertex;
-            }
-        }
-    }
-
-    private List<(TData data, List<(int vertexIndex, int weight)> edges)> _verticies = 
-        new List<(TData data, List<(int vertexIndex, int weight)> edges)>();
-}
-
-public class DijkstraAlgorithm<TData> {
-    public static int[] FindMinWeightFromSource(Graph<TData> graph, int source) {
-        var vertices = graph.VertexCount;
-        var distances = new int[vertices];
-        var shortestPathTreeSet = new bool[vertices];
-
-        for (int i = 0; i < vertices; i++) {
-            distances[i] = int.MaxValue;
-            shortestPathTreeSet[i] = false;
-        }
-
-        distances[source] = 0;
-
-        for (int count = 0; count < vertices - 1; count++) {
-
-            int u = MinimumDistance(distances, shortestPathTreeSet);
-            shortestPathTreeSet[u] = true;
-
-            foreach ((int v, int weight) in graph.GetVertex(u).edges) {
-
-                if (!shortestPathTreeSet[v] && distances[u] != int.MaxValue && distances[u] + weight < distances[v]) {
-                    distances[v] = distances[u] + weight;
-                }
-            }
-        }
-
-        return distances;
-    }
-
-    private static int MinimumDistance(int[] distances, bool[] shortestPathTreeSet) {
-        int min = int.MaxValue, minIndex = -1;
-
-        for (int v = 0; v < distances.Length; v++) {
-
-            if (!shortestPathTreeSet[v] && distances[v] <= min) {
-                min = distances[v];
-                minIndex = v;
-            }
-        }
-
-        return minIndex;
-    }
-}
-
-public static class AStar<TData> {
-
-    // Find and return the shortest path from start to goal.
-    public static List<int>? Search(Graph<TData> graph, int startIdx, int goalIdx, Func<int, int, int> heuristic) {
-
-        var openList = new List<int> { startIdx };
-        var closedList = new HashSet<int>();
-
-        // Dictionaries to hold g(n), h(n), and parent pointers
-        var gScore = new Dictionary<int, double> { [startIdx] = 0 };
-        var hScore = new Dictionary<int, double> { [startIdx] = heuristic(startIdx, goalIdx) };
-        var parentMap = new Dictionary<int, int>();
-
-        while (openList.Count > 0) {
-
-            // Find node in open list with the lowest F score
-            var currentIdx = openList.OrderBy(id => gScore[id] + hScore[id]).First();
-
-            if (currentIdx == goalIdx) {
-                return ReconstructPath(parentMap, currentIdx);
-            }
-
-            openList.Remove(currentIdx);
-            closedList.Add(currentIdx);
-
-            foreach ((var neighborIdx, var weightToNeighbor) in graph.GetVertex(currentIdx).edges) {
-
-                var neighbor = graph.GetVertex(neighborIdx);
-                if (closedList.Contains(neighborIdx)) continue;
-
-                // Tentative gScore (current gScore + distance to neighbor)
-                double tentativeGScore = gScore[currentIdx] + weightToNeighbor;
-
-                if (!gScore.ContainsKey(neighborIdx) || tentativeGScore < gScore[neighborIdx]) {
-                    // Update gScore and hScore
-                    gScore[neighborIdx] = tentativeGScore;
-                    hScore[neighborIdx] = heuristic(neighborIdx, goalIdx);
-
-                    // Set the current node as the parent of the neighbor
-                    parentMap[neighborIdx] = currentIdx;
-
-                    if (!openList.Contains(neighborIdx))
-                    {
-                        openList.Add(neighborIdx);
-                    }
-                }
-            }
-        }
-
-        return null; // No path found
-    }
-
-    private static List<int> ReconstructPath(Dictionary<int, int> parentMap, int current) {
-        var path = new List<int> { current };
-        
-        while (parentMap.ContainsKey(current)) {
-            current = parentMap[current];
-            path.Add(current);
-        }
-        
-        path.Reverse();
-        return path;
-    }
 }
