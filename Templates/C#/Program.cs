@@ -229,7 +229,7 @@ public class Graph<TData> {
 }
 
 public class DijkstraAlgorithm<TData> {
-    public static int[] Dijkstra(Graph<TData> graph, int source) {
+    public static int[] FindMinWeightFromSource(Graph<TData> graph, int source) {
         var vertices = graph.VertexCount;
         var distances = new int[vertices];
         var shortestPathTreeSet = new bool[vertices];
@@ -269,5 +269,73 @@ public class DijkstraAlgorithm<TData> {
         }
 
         return minIndex;
+    }
+}
+
+public static class AStar<TData> {
+
+    // Find and return the shortest path from start to goal.
+    public static List<int>? Search(Graph<TData> graph, int startIdx, int goalIdx, Func<int, int, int> heuristic) {
+
+        var openList = new List<int> { startIdx };
+        var closedList = new HashSet<int>();
+
+        // Dictionaries to hold g(n), h(n), and parent pointers
+        var gScore = new Dictionary<int, double> { [startIdx] = 0 };
+        var hScore = new Dictionary<int, double> { [startIdx] = heuristic(startIdx, goalIdx) };
+        var parentMap = new Dictionary<int, int>();
+
+        while (openList.Count > 0) {
+
+            // Find node in open list with the lowest F score
+            var currentIdx = openList.OrderBy(id => gScore[id] + hScore[id]).First();
+
+            if (currentIdx == goalIdx) {
+                return ReconstructPath(parentMap, currentIdx);
+            }
+
+            openList.Remove(currentIdx);
+            closedList.Add(currentIdx);
+
+            foreach ((var neighborIdx, var weightToNeighbor) in graph.GetVertex(currentIdx).edges) {
+
+                var neighbor = graph.GetVertex(neighborIdx);
+                if (closedList.Contains(neighborIdx)) continue;
+
+                // Tentative gScore (current gScore + distance to neighbor)
+                double tentativeGScore = gScore[currentIdx] + weightToNeighbor;
+
+                if (!gScore.ContainsKey(neighborIdx) || tentativeGScore < gScore[neighborIdx])
+                {
+                    // Update gScore and hScore
+                    gScore[neighborIdx] = tentativeGScore;
+                    hScore[neighborIdx] = heuristic(neighborIdx, goalIdx);
+
+                    // Set the current node as the parent of the neighbor
+                    parentMap[neighborIdx] = currentIdx;
+
+                    if (!openList.Contains(neighborIdx))
+                    {
+                        openList.Add(neighborIdx);
+                    }
+                }
+            }
+        }
+
+        return null; // No path found
+    }
+
+    private static List<int> ReconstructPath(Dictionary<int, int> parentMap, int current)
+    {
+        var path = new List<int> { current };
+        
+        while (parentMap.ContainsKey(current))
+        {
+            current = parentMap[current];
+            path.Add(current);
+        }
+        
+        path.Reverse();
+        return path;
     }
 }
