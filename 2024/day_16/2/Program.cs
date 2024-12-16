@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Runtime.InteropServices;
 
 
 Stopwatch watch = new Stopwatch();
@@ -29,11 +28,12 @@ int FindShortestCostPath(FixedBoard<char> board, Vec2 start, Vec2 target) {
             bestPathsForCell = (cost, new List<PathNode>());
         }
         bestPathsForCell.paths.Add(path);
+        bestCosts[(path.Pos, path.Dir)] = bestPathsForCell;
 
         if (path.Pos == target) continue;
 
-        Console.WriteLine($"Cost: {cost}");
-        board.Print(c => c, path.GetPathPositions().ToList(), '@');
+        // Console.WriteLine($"Cost: {cost}");
+        // board.Print(c => c, path.GetPathPositions().ToList(), '@');
 
         // Go forward
         var nextPosInDir = path.Pos + OffsetFromDirection(path.Dir);
@@ -69,15 +69,21 @@ int FindShortestCostPath(FixedBoard<char> board, Vec2 start, Vec2 target) {
         }
     }
 
-    var positions = new HashSet<Vec2>();
-    var solutions = bestCosts.Where(item => item.Key.pos == target).Select(item => item.Value.paths);
-    foreach (var solution in solutions) {  // This is because we can enter the end node in different directions
-        foreach (var solutionPath in solution) {
-            positions.Concat(solutionPath.GetPathPositions());
+    var positions = new List<Vec2>();
+    var solutions = bestCosts.Where(item => item.Key.pos == target);
+    var globalBestCost = solutions.Min(item => item.Value.cost);
+    var bestCostSolutions = solutions.Where(item => item.Value.cost == globalBestCost).Select(item => item.Value);
+
+    foreach (var solution in bestCostSolutions) {  // This is because we can enter the end node in different directions
+        foreach (var solutionPath in solution.paths) {
+            positions.AddRange(solutionPath.GetPathPositions());
         }
     }
 
-    return positions.Count;
+    var uniquePositions = positions.ToHashSet();
+    // board.Print(c => c, uniquePositions.ToList(), 'O');
+
+    return uniquePositions.Count;
 }
 
 void Run(string[] input) {
