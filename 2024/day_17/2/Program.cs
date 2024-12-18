@@ -28,6 +28,36 @@ long ComboOperand(List<long> registers, int operand) {
     throw new InvalidOperationException();
 }
 
+// Repeat:  bst REG_A       # REG_A % 8 -> REG_B
+//          bxl 7           # REG_B % 7 -> REG_B
+//          cdv REG_B       # REG_A / 2**REG_B -> REG_C
+//          adv 3           # REG_A / 2**3 -> REG_A
+//          bxl 7           # REG_B ^ 7 -> REG_B
+//          bxc             # REG_B ^ REG_C -> REG_B
+//          out REG_B       # output REG_B % 8
+//          jnz 0           # if REG_A != 0 goto :Repeat
+//
+// bool RunCompiledProgramExpecting(long start, List<int> expectedOutput) {   
+//     var a = start;
+//     var op = 0;
+
+//     while (a != 0) {
+//         var b = a % 8;
+//         b = b ^ 7;
+//         var c = a / (long)Math.Pow(2, b);
+//         a = a / 8;
+//         b = b ^ 7;
+//         b = c ^ b;
+//         var o = b % 8;
+//         if (o != expectedOutput[op]) {
+//             return false;
+//         }
+//         op++;
+//     }
+
+//     return op == expectedOutput.Count;
+// }
+
 int? RunProgram(List<long> registers, List<int> program) {
     while (registers[REG_IP] < program.Count) {
 
@@ -49,7 +79,8 @@ int? RunProgram(List<long> registers, List<int> program) {
                 break;
             case 3: // jnz
                 if (registers[REG_A] != 0) {
-                    registers[REG_IP] = operand - 2;
+                    registers[REG_IP] = operand;
+                    continue;
                 }
                 break;
             case 4: // bxc
@@ -74,6 +105,21 @@ int? RunProgram(List<long> registers, List<int> program) {
     return null;
 }
 
+void PrintRun(long a, List<int> program) {
+    int? result = null;
+
+    List<long> registers = new List<long>() { a, 0, 0, 0 };
+
+    while(true) {
+
+        result = RunProgram(registers, program);
+        if (result == null) break;
+
+        Console.Write($"{result},");
+    }
+    Console.WriteLine();
+}
+
 bool Validate(List<long> registers, List<int> program) {
     int i = 0;
     int? result = null;
@@ -92,7 +138,7 @@ bool Validate(List<long> registers, List<int> program) {
 }
 
 long? FindProgram(List<long> registers, List<int> program, int index, long a) {
-    if (index == 2) {
+    if (index == -1) {
         return a;
     }
 
@@ -108,6 +154,11 @@ long? FindProgram(List<long> registers, List<int> program, int index, long a) {
 
         var output = RunProgram(runRegisters, program);
         if (output == program[index]) {
+
+            Console.WriteLine($"[{index}] Possible value: {candidate}");
+            PrintRun(a, program);
+            Console.WriteLine();
+
             // This value of a produces the right output, recursively explore the next index
             var result = FindProgram(registers, program, index - 1, candidate);
             if (result.HasValue) return result;
