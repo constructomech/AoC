@@ -13,36 +13,30 @@ Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 const int REG_A = 0;
 const int REG_B = 1;
 const int REG_C = 2;
+const int REG_IP = 3;
 
 long ComboOperand(List<long> registers, int operand) {
     switch (operand) {
         case 0:
         case 1:
         case 2:
-        case 3:
-            return operand;
-        case 4:
-            return registers[REG_A];
-        case 5:
-            return registers[REG_B];
-        case 6:
-            return registers[REG_C];
+        case 3: return operand;
+        case 4: return registers[REG_A];
+        case 5: return registers[REG_B];
+        case 6: return registers[REG_C];
     }
     throw new InvalidOperationException();
 }
 
-bool RunProgramExpecting(List<long> registers, List<int> program, List<int> expectedOutput) {
-    var ip = 0;   // instruction pointer
-    var op = 0;   // output pointer
+int? RunProgram(List<long> registers, List<int> program) {
+    while (registers[REG_IP] < program.Count) {
 
-    while (ip < program.Count) {
-
-        var opcode = program[ip];
-        var operand = program[ip + 1];
+        var opcode = program[(int)registers[REG_IP]];
+        var operand = program[(int)registers[REG_IP] + 1];
 
         switch(opcode) {
             case 0: // adv
-                var advResult = registers[REG_A] / (long)Math.Pow(2, ComboOperand(registers, operand));
+                var advResult = registers[REG_A] / (int)Math.Pow(2, ComboOperand(registers, operand));
                 registers[REG_A] = advResult;
                 break;
             case 1: // bxl
@@ -55,7 +49,7 @@ bool RunProgramExpecting(List<long> registers, List<int> program, List<int> expe
                 break;
             case 3: // jnz
                 if (registers[REG_A] != 0) {
-                    ip = operand - 2;
+                    registers[REG_IP] = operand - 2;
                 }
                 break;
             case 4: // bxc
@@ -64,21 +58,62 @@ bool RunProgramExpecting(List<long> registers, List<int> program, List<int> expe
                 break;
             case 5: // out
                 var outResult = ComboOperand(registers, operand) % 8;
-                if (outResult != expectedOutput[op]) return false;
-                op++;
-                break;
+                registers[REG_IP] +=2;
+                return (int)outResult;
             case 6: // bdv
-                var bdvResult = registers[REG_A] / (long)Math.Pow(2, ComboOperand(registers, operand));
+                var bdvResult = registers[REG_A] / (int)Math.Pow(2, ComboOperand(registers, operand));
                 registers[REG_B] = bdvResult;
                 break;
             case 7: // cdv
-                var cdvResult = registers[REG_A] / (long)Math.Pow(2, ComboOperand(registers, operand));
+                var cdvResult = registers[REG_A] / (int)Math.Pow(2, ComboOperand(registers, operand));
                 registers[REG_C] = cdvResult;
                 break;
         }
-        ip +=2;
+        registers[REG_IP] +=2;
     }
-    return op == expectedOutput.Count;
+    return null;
+}
+
+bool Validate(List<long> registers, List<int> program) {
+    int i = 0;
+    int? result = null;
+    do {
+        result = RunProgram(registers, program);
+        Console.WriteLine(result);
+        if (result == null) {
+            break;
+        } else if (result != program[i]) {
+            return false;
+        }
+        i++;
+    } while (result != null);
+
+    return i == program.Count;
+}
+
+long? FindProgram(List<long> registers, List<int> program, int index, long a) {
+    if (index == 2) {
+        return a;
+    }
+
+    for (uint i = 0; i < 8; i++) {
+        // Each test run needs a copy of the register set.
+        var runRegisters = registers.ToList();
+
+        var candidate = (a << 3) | i;
+        runRegisters[REG_IP] = 0;
+        runRegisters[REG_A] = candidate;
+        runRegisters[REG_B] = 0;
+        runRegisters[REG_C] = 0;
+
+        var output = RunProgram(runRegisters, program);
+        if (output == program[index]) {
+            // This value of a produces the right output, recursively explore the next index
+            var result = FindProgram(registers, program, index - 1, candidate);
+            if (result.HasValue) return result;
+        }
+    }
+    return null;
 }
 
 void Run(string input) {
@@ -89,6 +124,7 @@ void Run(string input) {
     var registers = Regex.Matches(input, registersPattern)
                         .Select(m => long.Parse(m.Groups[1].Value))
                         .ToList();
+    registers.Add(0); // Add the instruction pointer register
 
     // Regex to match the program field
     string programPattern = @"Program: ([\d,]+)";
@@ -98,19 +134,15 @@ void Run(string input) {
                     .Select(int.Parse)
                     .ToList();
 
-    // Simulate
-    for (long i = int.MaxValue; i < long.MaxValue; i++) {
 
-        if (i % 100000 == 0) Console.WriteLine($"{i}");
+    var runRegisters = registers.ToList();
+    var winner = FindProgram(runRegisters, program, program.Count - 1, 0);
 
-        var runRegisters = registers.ToList();
-        runRegisters[REG_A] = i;
+    runRegisters[REG_IP] = 0;
+    runRegisters[REG_A] = winner.Value;
+    runRegisters[REG_B] = 0;
+    runRegisters[REG_C] = 0;
 
-        var runResult = RunProgramExpecting(runRegisters, program, program);
-
-        if (runResult) {
-            Console.WriteLine($"Found: {i}");
-            break;
-        }
-    }
+    bool result = Validate(runRegisters, program);
+    Console.WriteLine($"Validation: {result}");
 }
