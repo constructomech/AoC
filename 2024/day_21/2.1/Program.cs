@@ -26,18 +26,18 @@ public sealed class Solution
 
     public void Run(string[] input)
     {
-        // var part1 = input.Select(code => GetComplexity(code, 2)).Sum();
-        // var part2 = input.Select(code => GetComplexity(code, 25)).Sum();
+        var part1 = input.Select(code => GetComplexity(code, 2)).Sum();
+        var part2 = input.Select(code => GetComplexity(code, 25)).Sum();
 
-        // Console.WriteLine($"Part1: {part1}");
-        // Console.WriteLine($"Part2: {part2}");
+        Console.WriteLine($"Part1: {part1}");
+        Console.WriteLine($"Part2: {part2}");
 
-        var result = 0L;
-        foreach (var code in input) {
-            var complexity = GetComplexity(code, 2);
-            result += complexity;
-        }
-        Console.WriteLine(result);
+        // var result = 0L;
+        // foreach (var code in input) {
+        //     var complexity = GetComplexity(code, 2);
+        //     result += complexity;
+        // }
+        // Console.WriteLine(result);
 
     }
 
@@ -154,9 +154,9 @@ public record Vec2(int X, int Y)
         return new(int.Parse(parts[0]), int.Parse(parts[1]));
     }
 
-    public static Vec2 Up { get => new(0, -1); }
+    public static Vec2 Up { get => new(0, 1); }
 
-    public static Vec2 Down { get => new(0, 1); }
+    public static Vec2 Down { get => new(0, -1); }
 
     public static Vec2 Left { get => new(-1, 0); }
 

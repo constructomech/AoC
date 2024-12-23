@@ -65,18 +65,18 @@ List<List<char>> GetDirs(char from, char to) {
     _ => throw new InvalidOperationException("padPos")
 };
 
-Dictionary<string, decimal> GetTrivialPrices() {
+Dictionary<string, long> GetTrivialPrices() {
 
-    var prices = new Dictionary<string, decimal>();
+    var prices = new Dictionary<string, long>();
     foreach (var from in AllDirs)
         foreach (var to in AllDirs)
             prices[string.Concat(from, to)] = 1;
     return prices;
 }
 
-decimal TotalPrice(string bs, Dictionary<string, decimal> prev) {
+long TotalPrice(string bs, Dictionary<string, long> prev) {
     var x = 'A';
-    decimal total = 0;
+    long total = 0;
 
     foreach (var b in bs) {
         total += prev[string.Concat(x, b)];
@@ -86,12 +86,12 @@ decimal TotalPrice(string bs, Dictionary<string, decimal> prev) {
     return total;
 }
 
-Dictionary<string, decimal> GetNextPrices(Dictionary<string, decimal> prev, string allChs) {
-    var cur = new Dictionary<string, decimal>();
+Dictionary<string, long> GetNextPrices(Dictionary<string, long> prev, string allChs) {
+    var cur = new Dictionary<string, long>();
 
     foreach (var from in allChs) {
         foreach (var to in allChs) {
-            decimal best = decimal.MaxValue;
+            long best = long.MaxValue;
 
             foreach (var bs in GetDirs(from, to)) {
 
@@ -108,7 +108,7 @@ Dictionary<string, decimal> GetNextPrices(Dictionary<string, decimal> prev, stri
 
 int NumPrefix(string s) => int.Parse(s.Substring(0, 3));
 
-decimal Complexity(string[] lines, int times) {
+long Complexity(string[] lines, int times) {
     var prices = GetTrivialPrices();
 
     for (int i = 0; i < times; i++)
@@ -120,9 +120,12 @@ decimal Complexity(string[] lines, int times) {
 }
 
 void Run(string[] input) {
-    var p1 = Complexity(input, 2);
+//    var p1 = Complexity(input, 2);
     var p2 = Complexity(input, 25);
 
-    Console.WriteLine($"part 1 = {p1}");
+//    Console.WriteLine($"part 1 = {p1}");
     Console.WriteLine($"part 2 = {p2}");
 }
+
+// 198187405225570 too low
+// 198187405225570 
