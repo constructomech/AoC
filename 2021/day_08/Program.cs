@@ -31,6 +31,8 @@ using (StreamReader reader = File.OpenText("input.txt"))
 }
 
 int sum = 0;
+int oneFourSevenOrEight = 0;
+
 foreach (Pair pair in data) {
 
     string signalForZero = "";
@@ -135,11 +137,17 @@ foreach (Pair pair in data) {
         }
     }
 
+    foreach (char digit in outputValue) {
+        if (digit == '1' || digit == '4' || digit == '7' || digit == '8') {
+            oneFourSevenOrEight++;
+        }
+    }
+
     int outputNum = Convert.ToInt32(outputValue);
     sum += outputNum;
 }
 
-Console.WriteLine("Sum: {0}", sum);
+Console.WriteLine($"1,4,7,8 only: {oneFourSevenOrEight}, Sum: {sum}");
 
 
 bool isMissingOneIn(string input, string other) {
