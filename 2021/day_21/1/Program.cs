@@ -1,6 +1,6 @@
 ﻿(int position, int score)[] players = new (int, int)[2];
-players[0].position = 4;
-players[1].position = 8;
+players[0].position = 8;
+players[1].position = 4;
 
 Die die = new Die();
 

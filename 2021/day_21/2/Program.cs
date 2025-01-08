@@ -2,7 +2,7 @@
 var cache = new Dictionary<(int player1score, int player2score, int player1pos, int player2pos, int turn), (long player1score, long player2score)>();
 int[] threeQuantumDieRolls = { 3, 4, 4, 4, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6, 6, 6, 7, 7, 7, 7, 7, 7, 8, 8, 8, 9 };
 
-(long player1wins, long player2wins) = QuantumGame(0, 0, 3, 7, 0);
+(long player1wins, long player2wins) = QuantumGame(0, 0, 8, 4, 0);
 
 Console.WriteLine("Player 1 wins in {0} universes", player1wins);
 Console.WriteLine("Player 2 wins in {0} universes", player2wins);
