@@ -75,10 +75,8 @@ Dictionary<int, int> CountCheatPlacements(FixedBoard<char> board, Vec2 start, Ve
         var winBy = baselinePathLength - cheatPath.Count;
         if (winBy > minWin) {
 
-            if (winBy == 4) {
-                board.Print(c => c, new List<Vec2>() { pos }, '1');
-                Console.WriteLine($"Saves {winBy} picoseconds.");
-            }
+            // board.Print(c => c, new List<Vec2>() { pos }, '1');
+            // Console.WriteLine($"Saves {winBy} picoseconds.");
 
             result.TryAdd(winBy, 0);
             result[winBy]++;
