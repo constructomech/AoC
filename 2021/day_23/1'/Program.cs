@@ -35,6 +35,9 @@ public record Vec2 (int X, int Y) {
     public static Vec2 operator *(Vec2 a, int b) => new(a.X * b, a.Y * b);
 }
 
+// TODO:
+// Externalize amphipods from board so we can queue and cache that state.
+//
 public class AmphipodBurrow : FixedBoard<char> {
 
     public AmphipodBurrow(int width, int height) : base(width, height) {
@@ -47,8 +50,20 @@ public class AmphipodBurrow : FixedBoard<char> {
 
     public List<Vec2> Hallway { get => _hallway; }
 
-    public List<(Vec2, int)> AvailableRoomMoves(Vec2 pos) {
+    public List<(Vec2, int)> AvailableRoomMoves() {
         var moves = new List<(Vec2, int)>();
+        
+        foreach (var pos in this.Hallway) {
+            var candidate = this._amphipods.Where(p => p.pos == pos);
+            if (candidate.Any()) {
+                var amphipod = candidate.First();
+                var targetRoom = this.Rooms.Where(r => r.Contains(pos)).First();
+
+                // Build an IEnumerable<Vec2> of the path to a valid target room location
+                // Enumerable.Range(amphipod.pos.X, targetRoom.
+                // var path = 
+            } 
+        }
 
         return moves;
     }
@@ -70,7 +85,9 @@ public class AmphipodBurrow : FixedBoard<char> {
                             // If this position is blocked by another amphipod, bail
                             if (this._amphipods.Any(p => p.pos == new Vec2(pos.X + offset, hallwayY))) return false;
 
-                            moves.Add((pos, new Vec2(pos.X + offset, hallwayY), AmphipodBurrow.ManhattanDistance(pos, new Vec2(pos.X + offset, hallwayY))));
+                            var cost = AmphipodBurrow.ManhattanDistance(pos, new Vec2(pos.X + offset, hallwayY));
+
+                            moves.Add((pos, new Vec2(pos.X + offset, hallwayY), cost));
                         }
                         return true;
 
@@ -91,6 +108,15 @@ public class AmphipodBurrow : FixedBoard<char> {
     }
 
     public void Print() => Print(c => c);
+
+    public static int CostPerMove(char c) =>
+        c switch {
+            'A' => 1,
+            'B' => 10,
+            'C' => 100,
+            'D' => 1000,
+            _ => 0
+        };
 
     public static AmphipodBurrow FromString(string[] input) {
 
