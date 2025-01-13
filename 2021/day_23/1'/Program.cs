@@ -1,7 +1,7 @@
 ﻿using System.Collections.Immutable;
 using System.Data;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
+using System.Reflection.Metadata.Ecma335;
 
 
 Stopwatch watch = new Stopwatch();
@@ -11,6 +11,16 @@ Run(input);
 watch.Stop();
 Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
+bool IsGoalState(ImmutableArray<(Vec2 pos, char type)> amphipods, AmphipodBurrow board) {
+
+    // If all amphipods are in the correct room
+    foreach (var amphipod in amphipods) {
+        if (!board.Rooms[amphipod.type - 'A'].Contains(amphipod.pos)) {
+            return false;
+        }
+    }
+    return true;
+}
 
 void Run(string[] input) {
     var result = 0L;
@@ -24,6 +34,11 @@ void Run(string[] input) {
     while (q.TryPeek(out var item, out var costEstimate)) {
         q.Dequeue();
         bestKnownCosts[item.amphipods] = item.knownCost;
+
+        if (IsGoalState(item.amphipods, board)) {
+            result = item.knownCost;
+            break;
+        }
 
         Console.WriteLine($"Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
 //        board.Print(item.amphipods);
@@ -134,8 +149,7 @@ public class AmphipodBurrow : FixedBoard<char> {
         var hallwayY = this.Hallway[0].Y;
 
         var candidates = amphipods.Where(p => this.Rooms.SelectMany(r => r).Contains(p.pos));
-
-        //TODO: NEED TO SUBTRACT CANDIDATES THAT ARE ALREADY IN THE CORRECT ROOM
+        candidates = AmphipodsOutOfPosition(amphipods);
 
         foreach (var candidate in candidates) {
 
@@ -216,6 +230,24 @@ public class AmphipodBurrow : FixedBoard<char> {
     }
 
     private static int ManhattanDistance(Vec2 a, Vec2 b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+
+    private IEnumerable<(Vec2 pos, char type)> AmphipodsOutOfPosition(ImmutableArray<(Vec2 pos, char type)> amphipods) {
+        foreach (var amphipod in amphipods) {
+            if (!this.Rooms[amphipod.type - 'A'].Contains(amphipod.pos)) {
+                yield return amphipod;
+            }
+            else {
+                var targetRoom = this.Rooms[amphipod.type - 'A'];
+
+                // If this amphipod is in the bottom row OR if it's on the top row and the rooms is full of appropiate amphipods
+                bool inBottomRow = targetRoom.Max(p => p.Y) == amphipod.pos.Y;
+                bool allInRoomAreCorrect = targetRoom.All(p => amphipods.Any(a => a.pos == p && a.type == amphipod.type));
+                if (!inBottomRow && !allInRoomAreCorrect) {
+                    yield return amphipod;
+                }
+            }
+        }
+    }
 
     private List<List<Vec2>> _rooms;
     private List<Vec2> _hallway;
