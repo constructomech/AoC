@@ -1,359 +1,304 @@
-﻿using VCSKicksCollection;
-
-var lines = new List<string>();
-
-using (StreamReader reader = File.OpenText("input.txt"))
-{
-    while (!reader.EndOfStream)
-    {
-        string? line = reader.ReadLine();
-        if (line != null) {            
-            lines.Add(line);
-        }
-    }
-}
-
-List<string> goalMapSource = new List<string>() { 
-"#############",
-"#...........#",
-"###A#B#C#D###",
-"  #A#B#C#D#",
-"  #A#B#C#D#",
-"  #A#B#C#D#",
-"  #########"
-};
-
-char[,] startingMap = ParseMap(lines);
-char[,] goalMap = ParseMap(goalMapSource);
-int iter = 0;
-
-var result = Solve(startingMap, goalMap, Heuristic);
-
-if (result != null) {
-    Console.WriteLine();
-    for (int step = 0; step < result.Count; step++) {
-        Console.WriteLine("Step {0}", step);
-        Print(result[step]);
-        Console.WriteLine("Cost: {0}", State.fScore[result[step]]);
-    }
-}
+﻿using System.Collections.Immutable;
+using System.Data;
+using System.Diagnostics;
 
 
-List<char[,]> Solve(char[,] start, char[,] goal, Func<char[,], int> h) {
-    
-    var result = new List<char[,]>();
+Stopwatch watch = new Stopwatch();
+watch.Start();
+var input = File.ReadAllLines("input.txt");
+Run(input);
+watch.Stop();
+Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
-    Console.WriteLine("Start:");
-    Print(start);
+// Observation: This board state is a fail since C can't be moved out of the way to allow D to move into place. If we can detect this we can cut off a lot of search space.
+//
+// #############
+// #C....A.C..A#
+// ###.#B#.#.###
+//   #.#B#D#D#  
+//   #########  
 
-    Console.WriteLine("Goal:");
-    Print(goal);
+bool IsGoalState(ImmutableArray<(Vec2 pos, char type)> amphipods, AmphipodBurrow board) {
 
-    State.openSet.Enqueue(new QueueItem() { Map = start });
-
-    State.gScore[start] = 0;
-
-    State.fScore[start] = h(start);
-
-    while (State.openSet.Count > 0) {
-        var item = State.openSet.Dequeue();
-        var current = item.Map;
-
-        if (iter++ % 10000 == 0) {
-            Console.WriteLine("Current:");
-            Print(current);
-            Console.WriteLine("Cost: {0}", item.FScore);
-        }
-
-        if (IsEqual(current, goal)) {
-            return ReconstructPath(State.cameFrom, current);
-        }
-
-        foreach (var neighbor in GetNeighbors(current)) {
-            
-            // Console.WriteLine("Neighbor:");
-            // Print(neighbor);
-
-            int tentativeGScore = GetGScore(current) + ComputeMoveCost(current, neighbor);
-            // Console.WriteLine("Tentative Score: {0}", tentativeGScore);
-            if (tentativeGScore < GetGScore(neighbor)) {
-
-                State.cameFrom[neighbor] = current;
-                State.gScore[neighbor] = tentativeGScore;
-                State.fScore[neighbor] = tentativeGScore + h(neighbor);
-                // Console.WriteLine("FScore: {0}", tentativeGScore + h(neighbor));
-
-                // If neighbor not in open set (not implemented)
-                State.openSet.Enqueue(new QueueItem() { Map = neighbor });
-            }
-        }
-    }
-
-    return result;
-}
-
-IEnumerable<char[,]> GetNeighbors(char[,] map) {
-
-    for (int y = 0; y < map.GetLength(1); y++) {
-        for (int x = 0; x < map.GetLength(0); x++) {
-            if (IsPlayer(map[x, y]) && !PackedInCorrectRoom(map, x, y)) {
-                if (y == 1) { // is in the hallway
-                    // return best legal move to target room
-                    int roomX = GetTargetRoomX(map[x, y]);
-                    for (int roomY = 5; roomY >= 2; roomY--) {
-                        if (CanPathBetween(map, (x, y), (roomX, roomY))) {
-                            char[,] copy = Copy(map);
-                            copy[x, y] = '.';
-                            copy[roomX, roomY] = map[x, y];
-                            yield return copy;
-                            break;
-                        }
-                    }
-                } else { // is in a room
-                    // return all legal moves to hallway positions
-                    int hallwayY = 1;
-                    for (int hallwayX = 1; hallwayX <= 11; hallwayX++) {
-                        // Don't block rooms
-                        if (hallwayX != 3 && hallwayX != 5 && hallwayX != 7 && hallwayX != 9) {
-                            if (CanPathBetween(map, (x, y), (hallwayX, hallwayY))) {
-                                char[,] copy = Copy(map);
-                                copy[x, y] = '.';
-                                copy[hallwayX, hallwayY] = map[x, y];
-                                yield return copy;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-bool PackedInCorrectRoom(char[,] map, int x, int y) {
-    char player = map[x, y];
-    if (GetTargetRoomX(player) == x) {
-        for (int roomY = 5; roomY >= Math.Max(y, 2); roomY--) {
-            if (y == roomY) {
-                return true;
-            }
-            else if (map[x, roomY] != map[x, y]) { // Different player type
-                return false;                
-            }
-        }
-    }
-    return false;
-}
-
-bool CanPathBetween(char[,] map, (int x, int y) start, (int x, int y) end) {
-    foreach ((int x, int y) in GetPathSteps(map, start, end)) {
-        if (map[x, y] != '.') {
+    // If all amphipods are in the correct room
+    foreach (var amphipod in amphipods) {
+        if (!board.Rooms[amphipod.type - 'A'].Contains(amphipod.pos)) {
             return false;
         }
     }
     return true;
 }
 
-IEnumerable<(int x, int y)> GetPathSteps(char[,] map, (int x, int y) startLocation, (int x, int y) endLocation) {
-    if (startLocation.y != 1) {
-        // Room to hallway
-        for (int y = startLocation.y - 1; y >= endLocation.y; y--) {
-            yield return (startLocation.x, y);
+void Run(string[] input) {
+    var result = 0L;
+    var bestKnownCosts = new Dictionary<ImmutableArray<(Vec2 pos, char type)>, int>(new ImmutableArrayEqualityComparer<(Vec2, char)>());
+
+    (var board, var amphipodsInitialState) = AmphipodBurrow.FromString(input);
+
+    var q = new PriorityQueue<ImmutableArray<(Vec2 pos, char type)>, int>();
+    q.Enqueue(amphipodsInitialState, 0);
+
+    while (q.TryPeek(out var amphipods, out var cost)) {
+        q.Dequeue();
+        bestKnownCosts[amphipods] = cost;
+
+        if (IsGoalState(amphipods, board)) {
+            result = cost;
+            break;
         }
 
-        bool cont = (startLocation.x != endLocation.x);
-        int x = startLocation.x;
-        int inc = (startLocation.x > endLocation.x) ? -1 : 1;
-        while (cont) {
-            x += inc;
+//        Console.WriteLine($"Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
+//        board.Print(item.amphipods);
 
-            yield return (x, endLocation.y);
-            cont = (x != endLocation.x);
+        var roomMoves = board.AvailableRoomMoves(amphipods);
+        var hallwayMoves = board.AvailableHallwayMoves(amphipods);
+        var moves = roomMoves.Concat(hallwayMoves);
+
+        foreach (var move in moves) {
+            var newAmphipods = amphipods.Select(p => p.pos == move.from ? (move.to, p.type) : p).ToImmutableArray();
+            var newCost = cost + move.cost;
+
+            // Check if the cost < best total cost for this board state before queuing anything
+            if (bestKnownCosts.TryGetValue(newAmphipods, out var bestKnownCost) && bestKnownCost <= newCost) {
+                continue;
+            }
+
+            // Console.WriteLine($"[Queuing] Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
+            // board.Print(newAmphipods);
+
+            q.Enqueue(newAmphipods, newCost);
         }
     }
-    else {
-        // Hallway to room
-        bool cont = (startLocation.x != endLocation.x);
-        int x = startLocation.x;
-        int inc = (startLocation.x > endLocation.x) ? -1 : 1;
-        while (cont) {
-            x += inc;
 
-            yield return ((x, endLocation.y));
-            cont = (x != endLocation.x);
-        }
-        for (int y = startLocation.y; y <= endLocation.y; y++) {
-            yield return (startLocation.x, y);
-        }
-    }
+    Console.WriteLine($"Result: {result}");
 }
 
-int ComputeMoveCost(char[,] before, char[,] after) {
-    char player = ' ';
-    (int x, int y) startPosition = (0, 0), endPosition = (0, 0), move = (0, 0);
+class ImmutableArrayEqualityComparer<T> : IEqualityComparer<ImmutableArray<T>> where T : IEquatable<T> {
+    public bool Equals(ImmutableArray<T> x, ImmutableArray<T> y) => x.SequenceEqual(y);
+    public int GetHashCode(ImmutableArray<T> obj) => obj.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode()));
+}
 
-    for (int y = 0; y < before.GetLength(1); y++) {
-        for (int x = 0; x < before.GetLength(0); x++) {
-            if (before[x, y] != after[x, y]) {
-                if (IsPlayer(before[x,y])) {
-                    player = before[x, y];
-                    startPosition = (x, y);
-                } 
-                if (IsPlayer(after[x,y])) {
-                    endPosition = (x, y);
+public record Vec2 (int X, int Y) {
+    public static Vec2 operator +(Vec2 a, Vec2 b) => new(a.X + b.X, a.Y + b.Y);
+
+    public static Vec2 operator -(Vec2 a, Vec2 b) => new(a.X - b.X, a.Y - b.Y);
+
+    public static Vec2 operator *(Vec2 a, int b) => new(a.X * b, a.Y * b);
+}
+
+
+public class AmphipodBurrow : FixedBoard<char> {
+
+    public AmphipodBurrow(int width, int height) : base(width, height) {
+        _hallway = new List<Vec2>();
+        _rooms = new List<List<Vec2>>();
+    }
+
+    public List<List<Vec2>> Rooms { get => _rooms; }
+
+    public List<Vec2> Hallway { get => _hallway; }
+
+    public List<(Vec2 from, Vec2 to, int cost)> AvailableRoomMoves(ImmutableArray<(Vec2 pos, char type)> amphipods) {
+        var moves = new List<(Vec2 from, Vec2 to, int cost)>();
+
+        var candidates = amphipods.Where(p => this.Hallway.Contains(p.pos));
+        
+        foreach (var candidate in candidates) {
+            var targetRoom = this.Rooms[candidate.type - 'A'];
+
+            var path0 = RangeBetween(candidate.pos.X, targetRoom[0].X).Select(x => new Vec2(x, this.Hallway[0].Y));
+            var path1 = RangeBetween(this.Hallway[0].Y + 1, targetRoom.Max(p => p.Y)).Select(y => new Vec2(targetRoom[0].X, y));
+            var path = path0.Concat(path1);
+            path = path.Skip(1); // Skip the position of the Amphipod we're moving.
+
+            var squatter = amphipods.Where(p => p.pos == path.Last());
+            if (squatter.Any()) {
+                if (squatter.First().type == candidate.type) {
+                    path = path.Take(path.Count() - 1);
+                }
+            }
+
+            bool pathIsClear = true;
+            foreach (var pos in path) {
+                if (amphipods.Any(p => p.pos == pos)) {
+                    pathIsClear = false;
+                    break;
+                }
+            }
+
+            if (pathIsClear) {
+                var cost = CostPerMove(candidate.type) * path.Count();
+                moves.Add((candidate.pos, path.Last(), cost));
+            }
+        }
+
+        return moves;
+    }
+
+    public List<(Vec2 from, Vec2 to, int cost)> AvailableHallwayMoves(ImmutableArray<(Vec2 pos, char type)> amphipods) {
+        var moves = new List<(Vec2 from, Vec2 to, int cost)>();
+        var hallwayY = this.Hallway[0].Y;
+
+        var candidates = amphipods.Where(p => this.Rooms.SelectMany(r => r).Contains(p.pos));
+        candidates = AmphipodsOutOfPosition(amphipods);
+
+        foreach (var candidate in candidates) {
+
+            // If the amphipod isn't blocked in the room
+            if (!amphipods.Any(p => p.pos == new Vec2(candidate.pos.X, candidate.pos.Y - 1) || p.pos == new Vec2(candidate.pos.X, hallwayY))) {
+
+                Func<List<(Vec2, Vec2, int)>, int, Vec2, int, bool> conditionalAdd = (moves, offset, pos, hallwayY) => {
+                    // If this is not a position directly above a room
+                    if (this[pos.X + offset, hallwayY + 1] != '.') {
+
+                        // If this position is blocked by another amphipod, bail
+                        if (amphipods.Any(p => p.pos == new Vec2(pos.X + offset, hallwayY))) return false;
+
+                        var cost = AmphipodBurrow.ManhattanDistance(pos, new Vec2(pos.X + offset, hallwayY)) * CostPerMove(candidate.type);
+
+                        moves.Add((pos, new Vec2(pos.X + offset, hallwayY), cost));
+                    }
+                    return true;
+
+                };
+
+                // Moves to the left
+                var offset = -1;
+                while (this[candidate.pos.X + offset, hallwayY] == '.' && conditionalAdd(moves, offset, candidate.pos, hallwayY)) offset--;
+               
+                // Moves to the right
+                offset = 1;
+                while (this[candidate.pos.X + offset, hallwayY] == '.' && conditionalAdd(moves, offset, candidate.pos, hallwayY)) offset++;
+            }
+        }
+        return moves;
+    }
+
+    public void Print(ImmutableArray<(Vec2 pos, char type)> amphipods) => Print((pos, c) => {
+        if (amphipods.Any(p => p.pos == pos)) {
+            return amphipods.First(p => p.pos == pos).type;
+        }
+        return c;
+    });
+
+    public static int CostPerMove(char c) =>
+        c switch {
+            'A' => 1,
+            'B' => 10,
+            'C' => 100,
+            'D' => 1000,
+            _ => 0
+        };
+
+    public static (AmphipodBurrow board, ImmutableArray<(Vec2 pos, char type)> amphipods) FromString(string[] input) {
+
+        var board = new AmphipodBurrow(input.Length > 0 ? input[0].Length : 0, input.Length);
+        var amphipods = new List<(Vec2 pos, char type)>();
+
+        board.PopulateBoard(input, (pos, c) => {
+            if (c >= 'A' && c <= 'D') {
+                amphipods.Add((pos, c));
+                return '.';
+            }
+            return c;
+        });
+
+        for (var x = 1; x < board.Width - 1; x++) {
+            board._hallway.Add(new Vec2(x, 1));
+        }
+
+        var roomLocations = new List<Vec2>();
+        for (var x = 1; x < board.Width - 1; x++) {
+            for (var y = 2; y < board.Height - 1; y++) {
+                if (board[x, y] == '.') {
+                    roomLocations.Add(new Vec2(x, y));
+                }
+            }
+        }
+        board._rooms = roomLocations.GroupBy(p => p.X).Select(g => g.OrderBy(p => p.Y).ToList()).ToList();
+
+        return (board, amphipods.ToImmutableArray());
+    }
+
+    private static IEnumerable<int> RangeBetween(int start, int end) {
+        int step = start <= end ? 1 : -1;
+        for (int i = start; i != end + step; i += step) {
+            yield return i;
+        }
+    }
+
+    private static int ManhattanDistance(Vec2 a, Vec2 b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
+
+    private IEnumerable<(Vec2 pos, char type)> AmphipodsOutOfPosition(ImmutableArray<(Vec2 pos, char type)> amphipods) {
+        foreach (var amphipod in amphipods) {
+            if (!this.Rooms[amphipod.type - 'A'].Contains(amphipod.pos)) {
+                yield return amphipod;
+            }
+            else {
+                var targetRoom = this.Rooms[amphipod.type - 'A'];
+
+                // If this amphipod is in the bottom row OR if it's on the top row and the rooms is full of appropiate amphipods
+                bool inBottomRow = targetRoom.Max(p => p.Y) == amphipod.pos.Y;
+                bool allInRoomAreCorrect = targetRoom.All(p => amphipods.Any(a => a.pos == p && a.type == amphipod.type));
+                if (!inBottomRow && !allInRoomAreCorrect) {
+                    yield return amphipod;
                 }
             }
         }
     }
 
-    move = endPosition;
-    move.x -= startPosition.x;
-    move.y -= startPosition.y;
-
-    return GetCostToMove(player) * (Math.Abs(move.x) + Math.Abs(move.y));
+    private List<List<Vec2>> _rooms;
+    private List<Vec2> _hallway;
 }
 
-void Print(char[,] map) {
-    for (int y = 0; y < map.GetLength(1); y++) {
-        for (int x = 0; x < map.GetLength(0); x++) {
-            Console.Write(map[x, y]);
+public class FixedBoard<T> {
+    public FixedBoard(int width, int height) => _data = new T[width, height];
+
+    public int Width { get => _data.GetLength(0); }
+    public int Height { get => _data.GetLength(1); }
+
+    public Vec2 Extents { get => new Vec2(_data.GetLength(0), _data.GetLength(1)); }
+    public T this[int x, int y] { get => _data[x, y]; set => _data[x, y] = value; }
+    public T this[Vec2 pos] { get => _data[pos.X, pos.Y]; set => _data[pos.X, pos.Y] = value; }
+
+    public bool IsInBounds(int x, int y) => x >= 0 && y >= 0 && x < this.Width && y < this.Height;
+    public bool IsInBounds(Vec2 pos) => pos.X >= 0 && pos.Y >= 0 && pos.X < this.Width && pos.Y < this.Height;
+
+    public void ForEachCell(Action<int, int, T> action) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                action(x, y, this._data[x, y]);
+            }
+        }
+    }
+
+    public void ForEachCell(Action<Vec2, T> action) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                action(new Vec2(x, y), this._data[x, y]);
+            }
+        }
+    }
+
+    public void Print(Func<Vec2, T, char> resovleChar) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                char printVal = resovleChar(new Vec2(x, y), _data[x, y]);
+                Console.Write(printVal);
+            }
+            Console.WriteLine();
         }
         Console.WriteLine();
     }
-}
 
-char[,] Copy(char[,] map) {
-    char[,] copy = new char[map.GetLength(0), map.GetLength(1)];
-    for (int y = 0; y < map.GetLength(1); y++) {
-        for (int x = 0; x < map.GetLength(0); x++) {
-            copy[x, y] = map[x, y];
-        }
-    }
-    return copy;
-}
-
-bool IsEqual(char[,] m1, char[,] m2) {
-    for (int y = 0; y < m1.GetLength(1); y++) {
-        for (int x = 0; x < m1.GetLength(0); x++) {
-            if (m1[x, y] != m2[x, y]) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-int Heuristic(char[,] map) {
-    // We'll (under)estimate the cost as moving each incorrect placement along it's shortest path
-    //  without regard for others in the way.
-    var needToMove = new List<(char player, (int x, int y) current)>();
-
-    for (int y = 0; y < map.GetLength(1); y++) {
-        for (int x = 0; x < map.GetLength(0); x++) {
-            if (IsPlayer(map[x, y]) && !IsInCorrectRoom(map[x, y], x, y)) {
-                needToMove.Add((map[x, y], (x, y)));
+    protected void PopulateBoard(string[] input, Func<Vec2, char, T> transform) {
+        for (var y = 0; y < this.Height; y++) {
+            for (var x = 0; x < this.Width; x++) {
+                var item = input[y].Length > x ? input[y][x] : ' ';
+                this._data[x, y] = transform(new Vec2(x, y), item);
             }
         }
     }
 
-    int cost = 0;
-    foreach((char player, (int x, int y) current) in needToMove) {
-        int moves = Math.Abs(GetTargetRoomX(player) - current.x);
-        moves += (current.y - 1) * 2;   // Estimate vertical distance as to the hallway and back.
-        cost += moves * GetCostToMove(player);
-    }
-    return cost;
-}
-
-int GetGScore(char[,] map) {
-    int result;
-    if (State.gScore.TryGetValue(map, out result)) {
-        return result;
-    }
-    else {
-        return int.MaxValue;
-    }
-}
-
-int GetCostToMove(char c) {
-    switch(c) {
-        case 'A': return 1;
-        case 'B': return 10;
-        case 'C': return 100;
-        case 'D': return 1000;
-    }
-    throw new InvalidDataException();
-}
-
-bool IsPlayer(char c) {
-    switch (c) {
-        case 'A':
-        case 'B':
-        case 'C':
-        case 'D':
-            return true;
-    }
-    return false;
-}
-
-bool IsInCorrectRoom(char c, int x, int y) {
-    int roomX = GetTargetRoomX(c);
-    return x == roomX && y > 1;
-}
-
-int GetTargetRoomX(char c) {
-    switch (c) {
-        case 'A': return 3;
-        case 'B': return 5;
-        case 'C': return 7;
-        case 'D': return 9;
-    }
-    throw new InvalidDataException();
-}
-
-
-List<char[,]> ReconstructPath(Dictionary<char[,], char[,]> cameFrom, char[,] current) {
-    List<char[,]> totalPath = new List<char[,]>();
-    totalPath.Add(current);
-    while (cameFrom.Keys.Contains(current)) {
-        current = cameFrom[current];
-        totalPath.Insert(0, current);
-    }
-    return totalPath;
-}
-
-char[,] ParseMap(List<string> lines) {
-    int maxLength = lines.Max(s => s.Length);
-    var result = new char[maxLength, lines.Count];
-    for (int y = 0; y < lines.Count; y++) {
-        for (int x = 0; x < maxLength; x++) {
-            if (x < lines[y].Length) {
-                result[x, y] = lines[y][x];
-            } else {
-                result[x, y] = ' ';
-            }
-        }
-    }
-    return result;
-}
-
-class State {
-    public static PriorityQueue<QueueItem> openSet = new PriorityQueue<QueueItem>();
-    public static Dictionary<char[,], char[,]> cameFrom = new Dictionary<char[,], char[,]>();
-    public static Dictionary<char[,], int> gScore = new Dictionary<char[,], int>();
-    public static Dictionary<char[,], int> fScore = new Dictionary<char[,], int>();
-}
-class QueueItem : IComparable<QueueItem> {
-    public int CompareTo(QueueItem other) {
-        return FScore.CompareTo(other.FScore);
-    }
-
-    public int FScore { 
-        get {
-            int result = int.MaxValue;
-            State.fScore.TryGetValue(Map, out result);
-            return result;
-        }
-    }
-
-    public char[,] Map { get; set; }
+    private T[,] _data;
 }
