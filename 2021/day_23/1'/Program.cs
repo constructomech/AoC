@@ -1,7 +1,6 @@
 ﻿using System.Collections.Immutable;
 using System.Data;
 using System.Diagnostics;
-using System.Reflection.Metadata.Ecma335;
 
 
 Stopwatch watch = new Stopwatch();
@@ -40,7 +39,7 @@ void Run(string[] input) {
             break;
         }
 
-        Console.WriteLine($"Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
+//        Console.WriteLine($"Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
 //        board.Print(item.amphipods);
 
         var roomMoves = board.AvailableRoomMoves(item.amphipods);
@@ -57,6 +56,9 @@ void Run(string[] input) {
             if (bestKnownCosts.TryGetValue(newAmphipods, out var bestKnownCost) && bestKnownCost <= knownCost) {
                 continue;
             }
+
+            // Console.WriteLine($"[Queuing] Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
+            // board.Print(newAmphipods);
 
             q.Enqueue((newAmphipods, knownCost), totalCost);
         }
@@ -107,37 +109,31 @@ public class AmphipodBurrow : FixedBoard<char> {
         var candidates = amphipods.Where(p => this.Hallway.Contains(p.pos));
         
         foreach (var candidate in candidates) {
-            var targetRoomSet = this.Rooms.Where(r => r.Contains(candidate.pos));
-            if (targetRoomSet.Any()) {
+            var targetRoom = this.Rooms[candidate.type - 'A'];
 
-                var targetRoom = targetRoomSet.First();
+            var path0 = RangeBetween(candidate.pos.X, targetRoom[0].X).Select(x => new Vec2(x, this.Hallway[0].Y));
+            var path1 = RangeBetween(this.Hallway[0].Y + 1, targetRoom.Max(p => p.Y)).Select(y => new Vec2(targetRoom[0].X, y));
+            var path = path0.Concat(path1);
+            path = path.Skip(1); // Skip the position of the Amphipod we're moving.
 
-                var path0 = Enumerable.Range(candidate.pos.X, targetRoom[0].X - 1).Select(x => new Vec2(x, this.Hallway[0].Y));
-                var path1 = Enumerable.Range(this.Hallway[0].Y, targetRoom[0].Y).Select(y => new Vec2(targetRoom[0].X, y));
-                var path = path0.Concat(path1);
-
-                var squatter = amphipods.Where(p => p.pos == path.Last());
-                if (squatter.Any()) {
-                    if (squatter.First().type == candidate.type) {
-                        path = path.Take(path.Count() - 1);
-                    }
-                    else {
-                        continue;
-                    }
+            var squatter = amphipods.Where(p => p.pos == path.Last());
+            if (squatter.Any()) {
+                if (squatter.First().type == candidate.type) {
+                    path = path.Take(path.Count() - 1);
                 }
+            }
 
-                bool pathIsClear = true;
-                foreach (var pos in path) {
-                    if (amphipods.Any(p => p.pos == pos)) {
-                        pathIsClear = false;
-                        break;
-                    }
+            bool pathIsClear = true;
+            foreach (var pos in path) {
+                if (amphipods.Any(p => p.pos == pos)) {
+                    pathIsClear = false;
+                    break;
                 }
+            }
 
-                if (pathIsClear) {
-                    var cost = path.Select(p => CostPerMove(this[p])).Sum();
-                    moves.Add((candidate.pos, targetRoom[0], cost));
-                }
+            if (pathIsClear) {
+                var cost = CostPerMove(candidate.type) * path.Count();
+                moves.Add((candidate.pos, path.Last(), cost));
             }
         }
 
@@ -229,6 +225,13 @@ public class AmphipodBurrow : FixedBoard<char> {
         return (board, amphipods.ToImmutableArray());
     }
 
+    private static IEnumerable<int> RangeBetween(int start, int end) {
+        int step = start <= end ? 1 : -1;
+        for (int i = start; i != end + step; i += step) {
+            yield return i;
+        }
+    }
+
     private static int ManhattanDistance(Vec2 a, Vec2 b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
 
     private IEnumerable<(Vec2 pos, char type)> AmphipodsOutOfPosition(ImmutableArray<(Vec2 pos, char type)> amphipods) {
@@ -290,6 +293,7 @@ public class FixedBoard<T> {
             }
             Console.WriteLine();
         }
+        Console.WriteLine();
     }
 
     protected void PopulateBoard(string[] input, Func<Vec2, char, T> transform) {
