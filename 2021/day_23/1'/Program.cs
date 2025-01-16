@@ -27,40 +27,38 @@ void Run(string[] input) {
 
     (var board, var amphipodsInitialState) = AmphipodBurrow.FromString(input);
 
-    var q = new PriorityQueue<(ImmutableArray<(Vec2 pos, char type)> amphipods, int knownCost), int>();
-    q.Enqueue((amphipodsInitialState, 0), board.EstimateOfCostToGoal(amphipodsInitialState));
+    var q = new PriorityQueue<ImmutableArray<(Vec2 pos, char type)>, int>();
+    q.Enqueue(amphipodsInitialState, 0);
 
-    while (q.TryPeek(out var item, out var costEstimate)) {
+    while (q.TryPeek(out var amphipods, out var cost)) {
         q.Dequeue();
-        bestKnownCosts[item.amphipods] = item.knownCost;
+        bestKnownCosts[amphipods] = cost;
 
-        if (IsGoalState(item.amphipods, board)) {
-            result = item.knownCost;
+        if (IsGoalState(amphipods, board)) {
+            result = cost;
             break;
         }
 
 //        Console.WriteLine($"Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
 //        board.Print(item.amphipods);
 
-        var roomMoves = board.AvailableRoomMoves(item.amphipods);
-        var hallwayMoves = board.AvailableHallwayMoves(item.amphipods);
+        var roomMoves = board.AvailableRoomMoves(amphipods);
+        var hallwayMoves = board.AvailableHallwayMoves(amphipods);
         var moves = roomMoves.Concat(hallwayMoves);
 
         foreach (var move in moves) {
-            var newAmphipods = item.amphipods.Select(p => p.pos == move.from ? (move.to, p.type) : p).ToImmutableArray();
-            var knownCost = item.knownCost + move.cost;
-            var estimatedRemainingCost = board.EstimateOfCostToGoal(newAmphipods);
-            var totalCost = knownCost + estimatedRemainingCost;
+            var newAmphipods = amphipods.Select(p => p.pos == move.from ? (move.to, p.type) : p).ToImmutableArray();
+            var newCost = cost + move.cost;
 
             // Check if the cost < best total cost for this board state before queuing anything
-            if (bestKnownCosts.TryGetValue(newAmphipods, out var bestKnownCost) && bestKnownCost <= knownCost) {
+            if (bestKnownCosts.TryGetValue(newAmphipods, out var bestKnownCost) && bestKnownCost <= newCost) {
                 continue;
             }
 
             // Console.WriteLine($"[Queuing] Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
             // board.Print(newAmphipods);
 
-            q.Enqueue((newAmphipods, knownCost), totalCost);
+            q.Enqueue(newAmphipods, newCost);
         }
     }
 
@@ -87,21 +85,6 @@ public class AmphipodBurrow : FixedBoard<char> {
     public List<List<Vec2>> Rooms { get => _rooms; }
 
     public List<Vec2> Hallway { get => _hallway; }
-
-    public int EstimateOfCostToGoal(ImmutableArray<(Vec2 pos, char type)> amphipods) {
-        var cost = 0;
-        foreach (var amphipod in amphipods) {
-            var targetRoom = this.Rooms[amphipod.type - 'A'];
-
-            var path0 = Enumerable.Range(amphipod.pos.Y, this.Hallway[0].Y - 1).Select(y => new Vec2(targetRoom[0].X, y));
-            var path1 = Enumerable.Range(amphipod.pos.X, targetRoom[0].X - 1).Select(x => new Vec2(x, this.Hallway[0].Y));
-            var path2 = Enumerable.Range(this.Hallway[0].Y, targetRoom[0].Y).Select(y => new Vec2(targetRoom[0].X, y));
-            var path = path0.Concat(path1).Concat(path2);
-
-            cost += CostPerMove(amphipod.type) * path.Count();
-        }
-        return cost;
-    }
 
     public List<(Vec2 from, Vec2 to, int cost)> AvailableRoomMoves(ImmutableArray<(Vec2 pos, char type)> amphipods) {
         var moves = new List<(Vec2 from, Vec2 to, int cost)>();
