@@ -151,6 +151,7 @@ public class AmphipodBurrow : FixedBoard<char> {
         var hallwayY = this.Hallway[0].Y;
 
         // Candidates are amphipods that are in the lowest Y position in a room that this not theirs
+        //TODO: Or is theirs but there are amphipods blocked in by them that are in the wrong room.
         foreach (var room in this.Rooms) {
             var topAmphipodPos = room.OrderBy(p => p.Y).Where(p => amphipods.Any(a => a.pos == p));
             if (topAmphipodPos.Any()) {
