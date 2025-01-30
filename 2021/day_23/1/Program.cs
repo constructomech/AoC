@@ -11,7 +11,7 @@ watch.Stop();
 Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
 bool IsGoalState(ImmutableArray<(Vec2 pos, char type)> amphipods, AmphipodBurrow board) {
-
+    
     // If all amphipods are in the correct room
     foreach (var amphipod in amphipods) {
         if (!board.Rooms[amphipod.type - 'A'].Contains(amphipod.pos)) {
@@ -30,17 +30,19 @@ void Run(string[] input) {
     var q = new PriorityQueue<ImmutableArray<(Vec2 pos, char type)>, int>();
     q.Enqueue(amphipodsInitialState, 0);
 
-    while (q.TryPeek(out var amphipods, out var cost)) {
-        q.Dequeue();
-        bestKnownCosts[amphipods] = cost;
-
+    while (q.TryDequeue(out var amphipods, out var cost)) {
         if (IsGoalState(amphipods, board)) {
             result = cost;
             break;
         }
 
-//        Console.WriteLine($"Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
-//        board.Print(item.amphipods);
+//        Console.WriteLine($"Cost: {cost}, Queued: {q.Count}");
+//        board.Print(amphipods);
+
+        if (bestKnownCosts.TryGetValue(amphipods, out var knownCost) && knownCost <= cost) {
+            continue;
+        }
+        bestKnownCosts[amphipods] = cost;
 
         var roomMoves = board.AvailableRoomMoves(amphipods);
         var hallwayMoves = board.AvailableHallwayMoves(amphipods);
@@ -50,12 +52,7 @@ void Run(string[] input) {
             var newAmphipods = amphipods.Select(p => p.pos == move.from ? (move.to, p.type) : p).ToImmutableArray();
             var newCost = cost + move.cost;
 
-            // Check if the cost < best total cost for this board state before queuing anything
-            if (bestKnownCosts.TryGetValue(newAmphipods, out var bestKnownCost) && bestKnownCost <= newCost) {
-                continue;
-            }
-
-            // Console.WriteLine($"[Queuing] Known cost: {item.knownCost}, Estimated total: {costEstimate}, Queued: {q.Count}");
+            // Console.WriteLine($"[Queuing] Cost: {newCost}, Queued: {q.Count}");
             // board.Print(newAmphipods);
 
             q.Enqueue(newAmphipods, newCost);
