@@ -49,7 +49,7 @@ void Run(string[] input) {
         var moves = roomMoves.Concat(hallwayMoves);
 
         foreach (var move in moves) {
-            var newAmphipods = amphipods.Select(p => p.pos == move.from ? (move.to, p.type) : p).ToImmutableArray();
+            var newAmphipods = amphipods.Select(a => a.pos == move.from ? (pos: move.to, type: a.type) : a).OrderBy(a => a.pos).ToImmutableArray();
             var newCost = cost + move.cost;
 
             // Console.WriteLine($"[Queuing] Cost: {newCost}, Queued: {q.Count}");
@@ -67,7 +67,17 @@ class ImmutableArrayEqualityComparer<T> : IEqualityComparer<ImmutableArray<T>> w
     public int GetHashCode(ImmutableArray<T> obj) => obj.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode()));
 }
 
-public record Vec2 (int X, int Y) {
+public record Vec2 (int X, int Y) : IComparable<Vec2> {
+    public int CompareTo(Vec2? other) {
+        if (other == null) return 1;
+
+        int xResult = X.CompareTo(other.X);
+        if (xResult == 0) {
+            return Y.CompareTo(other.Y);
+        }
+        return xResult;
+    }
+
     public static Vec2 operator +(Vec2 a, Vec2 b) => new(a.X + b.X, a.Y + b.Y);
 
     public static Vec2 operator -(Vec2 a, Vec2 b) => new(a.X - b.X, a.Y - b.Y);
