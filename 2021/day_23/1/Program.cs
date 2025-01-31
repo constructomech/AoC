@@ -1,7 +1,5 @@
 ﻿using System.Collections.Immutable;
-using System.Data;
 using System.Diagnostics;
-
 
 Stopwatch watch = new Stopwatch();
 watch.Start();
@@ -11,8 +9,6 @@ watch.Stop();
 Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
 bool IsGoalState(ImmutableArray<(Vec2 pos, char type)> amphipods, AmphipodBurrow board) {
-    
-    // If all amphipods are in the correct room
     foreach (var amphipod in amphipods) {
         if (!board.Rooms[amphipod.type - 'A'].Contains(amphipod.pos)) {
             return false;
@@ -36,26 +32,20 @@ void Run(string[] input) {
             break;
         }
 
-//        Console.WriteLine($"Cost: {cost}, Queued: {q.Count}");
-//        board.Print(amphipods);
-
         if (bestKnownCosts.TryGetValue(amphipods, out var knownCost) && knownCost <= cost) {
             continue;
         }
         bestKnownCosts[amphipods] = cost;
 
-        var roomMoves = board.AvailableRoomMoves(amphipods);
-        var hallwayMoves = board.AvailableHallwayMoves(amphipods);
-        var moves = roomMoves.Concat(hallwayMoves);
+        var moves = board.GetAllMoves(amphipods);
 
         foreach (var move in moves) {
             var newAmphipods = amphipods.Select(a => a.pos == move.from ? (pos: move.to, type: a.type) : a).OrderBy(a => a.pos).ToImmutableArray();
             var newCost = cost + move.cost;
 
-            // Console.WriteLine($"[Queuing] Cost: {newCost}, Queued: {q.Count}");
-            // board.Print(newAmphipods);
-
-            q.Enqueue(newAmphipods, newCost);
+            if (!bestKnownCosts.TryGetValue(newAmphipods, out var existingCost) || newCost < existingCost) {
+                q.Enqueue(newAmphipods, newCost);
+            }
         }
     }
 
@@ -67,131 +57,96 @@ class ImmutableArrayEqualityComparer<T> : IEqualityComparer<ImmutableArray<T>> w
     public int GetHashCode(ImmutableArray<T> obj) => obj.Aggregate(0, (hash, item) => HashCode.Combine(hash, item.GetHashCode()));
 }
 
-public record Vec2 (int X, int Y) : IComparable<Vec2> {
-    public int CompareTo(Vec2? other) {
-        if (other == null) return 1;
-
-        int xResult = X.CompareTo(other.X);
-        if (xResult == 0) {
-            return Y.CompareTo(other.Y);
-        }
-        return xResult;
-    }
-
+public record Vec2(int X, int Y) : IComparable<Vec2> {
+    public int CompareTo(Vec2? other) => (other == null) ? 1 : (X, Y).CompareTo((other.X, other.Y));
     public static Vec2 operator +(Vec2 a, Vec2 b) => new(a.X + b.X, a.Y + b.Y);
-
     public static Vec2 operator -(Vec2 a, Vec2 b) => new(a.X - b.X, a.Y - b.Y);
-
     public static Vec2 operator *(Vec2 a, int b) => new(a.X * b, a.Y * b);
 }
 
-
 public class AmphipodBurrow : FixedBoard<char> {
+    public List<List<Vec2>> Rooms { get; private set; }
+    public List<Vec2> Hallway { get; private set; }
+    private Dictionary<Vec2, List<(Vec2 to, List<Vec2> path)>> _precomputedMoves;
+    private HashSet<Vec2> _allRooms;
+    private List<int> _roomDeepestY;
 
     public AmphipodBurrow(int width, int height) : base(width, height) {
-        _hallway = new List<Vec2>();
-        _rooms = new List<List<Vec2>>();
+        Hallway = new List<Vec2>();
+        Rooms = new List<List<Vec2>>();
+        _precomputedMoves = new Dictionary<Vec2, List<(Vec2 to, List<Vec2> path)>>();
+        _allRooms = new HashSet<Vec2>();
+        _roomDeepestY = new List<int>();
     }
 
-    public List<List<Vec2>> Rooms { get => _rooms; }
-
-    public List<Vec2> Hallway { get => _hallway; }
-
-    public List<(Vec2 from, Vec2 to, int cost)> AvailableRoomMoves(ImmutableArray<(Vec2 pos, char type)> amphipods) {
+    public List<(Vec2 from, Vec2 to, int cost)> GetAllMoves(ImmutableArray<(Vec2 pos, char type)> amphipods) {
         var moves = new List<(Vec2 from, Vec2 to, int cost)>();
+        var occupied = amphipods.Select(a => a.pos).ToHashSet();
+        var posToType = amphipods.ToDictionary(a => a.pos, a => a.type);
 
-        var candidates = amphipods.Where(p => this.Hallway.Contains(p.pos));
-        
-        foreach (var candidate in candidates) {
-            var targetRoom = this.Rooms[candidate.type - 'A'];
-
-            var path0 = RangeBetween(candidate.pos.X, targetRoom[0].X).Select(x => new Vec2(x, this.Hallway[0].Y));
-            var path1 = RangeBetween(this.Hallway[0].Y + 1, targetRoom.Max(p => p.Y)).Select(y => new Vec2(targetRoom[0].X, y));
-            var path = path0.Concat(path1);
-            path = path.Skip(1); // Skip the position of the Amphipod we're moving.
-
-            var squatter = amphipods.Where(p => p.pos == path.Last());
-            if (squatter.Any()) {
-                if (squatter.First().type == candidate.type) {
-                    path = path.Take(path.Count() - 1);
-                }
+        foreach (var amphipod in amphipods) {
+            if (IsInCorrectRoom(amphipod) && !IsBlockingOthers(amphipod, posToType)) {
+                continue;
             }
 
-            bool pathIsClear = true;
-            foreach (var pos in path) {
-                if (amphipods.Any(p => p.pos == pos)) {
-                    pathIsClear = false;
-                    break;
-                }
-            }
+            if (_precomputedMoves.TryGetValue(amphipod.pos, out var potentialMoves)) {
+                foreach (var move in potentialMoves) {
+                    if (occupied.Contains(move.to)) continue;
 
-            if (pathIsClear) {
-                var cost = CostPerMove(candidate.type) * path.Count();
-                moves.Add((candidate.pos, path.Last(), cost));
-            }
-        }
+                    bool pathBlocked = move.path.Any(p => occupied.Contains(p));
+                    if (pathBlocked) continue;
 
-        return moves;
-    }
+                    if (IsRoom(move.to)) {
+                        int typeIndex = amphipod.type - 'A';
+                        var targetRoom = Rooms[typeIndex];
+                        if (!targetRoom.Contains(move.to)) continue;
 
-    public List<(Vec2 from, Vec2 to, int cost)> AvailableHallwayMoves(ImmutableArray<(Vec2 pos, char type)> amphipods) {
-        var moves = new List<(Vec2 from, Vec2 to, int cost)>();
-        var hallwayY = this.Hallway[0].Y;
+                        if (RoomContainsIncorrectTypes(targetRoom, amphipod.type, posToType)) continue;
 
-        var candidates = amphipods.Where(p => this.Rooms.SelectMany(r => r).Contains(p.pos));
-        candidates = AmphipodsOutOfPosition(amphipods);
-
-        foreach (var candidate in candidates) {
-
-            // If the amphipod isn't blocked in the room
-            if (!amphipods.Any(p => p.pos == new Vec2(candidate.pos.X, candidate.pos.Y - 1) || p.pos == new Vec2(candidate.pos.X, hallwayY))) {
-
-                Func<List<(Vec2, Vec2, int)>, int, Vec2, int, bool> conditionalAdd = (moves, offset, pos, hallwayY) => {
-                    // If this is not a position directly above a room
-                    if (this[pos.X + offset, hallwayY + 1] != '.') {
-
-                        // If this position is blocked by another amphipod, bail
-                        if (amphipods.Any(p => p.pos == new Vec2(pos.X + offset, hallwayY))) return false;
-
-                        var cost = AmphipodBurrow.ManhattanDistance(pos, new Vec2(pos.X + offset, hallwayY)) * CostPerMove(candidate.type);
-
-                        moves.Add((pos, new Vec2(pos.X + offset, hallwayY), cost));
+                        int deepestY = _roomDeepestY[typeIndex];
+                        if (!IsDeepestAvailableSpot(occupied, move.to, deepestY)) continue;
                     }
-                    return true;
 
-                };
-
-                // Moves to the left
-                var offset = -1;
-                while (this[candidate.pos.X + offset, hallwayY] == '.' && conditionalAdd(moves, offset, candidate.pos, hallwayY)) offset--;
-               
-                // Moves to the right
-                offset = 1;
-                while (this[candidate.pos.X + offset, hallwayY] == '.' && conditionalAdd(moves, offset, candidate.pos, hallwayY)) offset++;
+                    int cost = move.path.Count * CostPerMove(amphipod.type);
+                    moves.Add((amphipod.pos, move.to, cost));
+                }
             }
         }
+
         return moves;
     }
 
-    public void Print(ImmutableArray<(Vec2 pos, char type)> amphipods) => Print((pos, c) => {
-        if (amphipods.Any(p => p.pos == pos)) {
-            return amphipods.First(p => p.pos == pos).type;
-        }
-        return c;
-    });
+    private bool IsRoom(Vec2 pos) => _allRooms.Contains(pos);
 
-    public static int CostPerMove(char c) =>
-        c switch {
-            'A' => 1,
-            'B' => 10,
-            'C' => 100,
-            'D' => 1000,
-            _ => 0
-        };
+    private bool RoomContainsIncorrectTypes(List<Vec2> room, char expectedType, Dictionary<Vec2, char> posToType) {
+        foreach (var pos in room) {
+            if (posToType.TryGetValue(pos, out var type) && type != expectedType) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private bool IsDeepestAvailableSpot(HashSet<Vec2> occupied, Vec2 pos, int deepestY) {
+        if (pos.Y == deepestY) return true;
+        for (int y = pos.Y + 1; y <= deepestY; y++) {
+            if (!occupied.Contains(new Vec2(pos.X, y))) return false;
+        }
+        return true;
+    }
+
+    public void Print(ImmutableArray<(Vec2 pos, char type)> amphipods) => Print((pos, c) => amphipods.FirstOrDefault(a => a.pos == pos).type);
+
+    public static int CostPerMove(char c) => c switch {
+        'A' => 1,
+        'B' => 10,
+        'C' => 100,
+        'D' => 1000,
+        _ => 0
+    };
 
     public static (AmphipodBurrow board, ImmutableArray<(Vec2 pos, char type)> amphipods) FromString(string[] input) {
-
-        var board = new AmphipodBurrow(input.Length > 0 ? input[0].Length : 0, input.Length);
+        var board = new AmphipodBurrow(input[0].Length, input.Length);
         var amphipods = new List<(Vec2 pos, char type)>();
 
         board.PopulateBoard(input, (pos, c) => {
@@ -202,88 +157,109 @@ public class AmphipodBurrow : FixedBoard<char> {
             return c;
         });
 
-        for (var x = 1; x < board.Width - 1; x++) {
-            board._hallway.Add(new Vec2(x, 1));
-        }
+        board.Hallway = Enumerable.Range(1, board.Width - 2).Select(x => new Vec2(x, 1)).ToList();
 
         var roomLocations = new List<Vec2>();
-        for (var x = 1; x < board.Width - 1; x++) {
-            for (var y = 2; y < board.Height - 1; y++) {
-                if (board[x, y] == '.') {
-                    roomLocations.Add(new Vec2(x, y));
-                }
+        for (int x = 1; x < board.Width - 1; x++) {
+            for (int y = 2; y < board.Height - 1; y++) {
+                if (board[x, y] == '.') roomLocations.Add(new Vec2(x, y));
             }
         }
-        board._rooms = roomLocations.GroupBy(p => p.X).Select(g => g.OrderBy(p => p.Y).ToList()).ToList();
 
-        return (board, amphipods.ToImmutableArray());
+        board._allRooms = new HashSet<Vec2>(roomLocations);
+        board.Rooms = roomLocations.GroupBy(p => p.X)
+            .OrderBy(g => g.Key)
+            .Select(g => g.OrderBy(p => p.Y).ToList()).ToList();
+        board._roomDeepestY = board.Rooms.Select(room => room.Max(p => p.Y)).ToList();
+
+        foreach (var hallwayPos in board.Hallway) {
+            if (board._allRooms.Any(p => p.X == hallwayPos.X)) continue;
+
+            foreach (var roomPos in roomLocations) {
+                var pathToRoom = board.GetPath(hallwayPos, roomPos);
+                AddMove(board._precomputedMoves, hallwayPos, roomPos, pathToRoom);
+
+                var pathToHallway = board.GetPath(roomPos, hallwayPos);
+                AddMove(board._precomputedMoves, roomPos, hallwayPos, pathToHallway);
+            }
+        }
+
+        return (board, amphipods.OrderBy(a => a.pos).ToImmutableArray());
     }
 
-    private static IEnumerable<int> RangeBetween(int start, int end) {
-        int step = start <= end ? 1 : -1;
-        for (int i = start; i != end + step; i += step) {
-            yield return i;
+    private static void AddMove(Dictionary<Vec2, List<(Vec2 to, List<Vec2> path)>> moves, Vec2 from, Vec2 to, List<Vec2> path) {
+        if (!moves.TryGetValue(from, out var existing)) {
+            existing = new List<(Vec2 to, List<Vec2> path)>();
+            moves[from] = existing;
+        }
+        existing.Add((to, path));
+    }
+
+    private List<Vec2> GetPath(Vec2 from, Vec2 to) {
+        var path = new List<Vec2>();
+        bool moveHorizontallyFirst = from.Y == Hallway[0].Y;
+
+        if (moveHorizontallyFirst) {
+            MoveHorizontally(from, new Vec2(to.X, from.Y), path);
+            MoveVertically(new Vec2(to.X, from.Y), to, path);
+        } else {
+            MoveVertically(from, new Vec2(from.X, Hallway[0].Y), path);
+            MoveHorizontally(new Vec2(from.X, Hallway[0].Y), to, path);
+        }
+
+        return path;
+    }
+
+    private static void MoveHorizontally(Vec2 from, Vec2 to, List<Vec2> path) {
+        int step = Math.Sign(to.X - from.X);
+        for (int x = from.X + step; x != to.X + step; x += step) {
+            path.Add(new Vec2(x, from.Y));
         }
     }
 
-    private static int ManhattanDistance(Vec2 a, Vec2 b) => Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y);
-
-    private IEnumerable<(Vec2 pos, char type)> AmphipodsOutOfPosition(ImmutableArray<(Vec2 pos, char type)> amphipods) {
-        foreach (var amphipod in amphipods) {
-            if (!this.Rooms[amphipod.type - 'A'].Contains(amphipod.pos)) {
-                yield return amphipod;
-            }
-            else {
-                var targetRoom = this.Rooms[amphipod.type - 'A'];
-
-                // If this amphipod is in the bottom row OR if it's on the top row and the rooms is full of appropiate amphipods
-                bool inBottomRow = targetRoom.Max(p => p.Y) == amphipod.pos.Y;
-                bool allInRoomAreCorrect = targetRoom.All(p => amphipods.Any(a => a.pos == p && a.type == amphipod.type));
-                if (!inBottomRow && !allInRoomAreCorrect) {
-                    yield return amphipod;
-                }
-            }
+    private static void MoveVertically(Vec2 from, Vec2 to, List<Vec2> path) {
+        int step = Math.Sign(to.Y - from.Y);
+        for (int y = from.Y + step; y != to.Y + step; y += step) {
+            path.Add(new Vec2(from.X, y));
         }
     }
 
-    private List<List<Vec2>> _rooms;
-    private List<Vec2> _hallway;
+    private bool IsInCorrectRoom((Vec2 pos, char type) amphipod) {
+        var targetRoom = Rooms[amphipod.type - 'A'];
+        return targetRoom.Contains(amphipod.pos);
+    }
+
+    private bool IsBlockingOthers((Vec2 pos, char type) amphipod, Dictionary<Vec2, char> posToType) {
+        var targetRoom = Rooms[amphipod.type - 'A'];
+        if (!targetRoom.Contains(amphipod.pos) || amphipod.pos.Y == _roomDeepestY[amphipod.type - 'A']) return false;
+
+        for (int y = amphipod.pos.Y + 1; y <= _roomDeepestY[amphipod.type - 'A']; y++) {
+            var posBelow = new Vec2(amphipod.pos.X, y);
+            if (posToType.TryGetValue(posBelow, out var type) && type != amphipod.type) {
+                return true;
+            }
+        }
+        return false;
+    }
 }
 
 public class FixedBoard<T> {
+    protected T[,] _data;
+    public int Width => _data.GetLength(0);
+    public int Height => _data.GetLength(1);
+    public Vec2 Extents => new Vec2(Width, Height);
+
     public FixedBoard(int width, int height) => _data = new T[width, height];
 
-    public int Width { get => _data.GetLength(0); }
-    public int Height { get => _data.GetLength(1); }
-
-    public Vec2 Extents { get => new Vec2(_data.GetLength(0), _data.GetLength(1)); }
     public T this[int x, int y] { get => _data[x, y]; set => _data[x, y] = value; }
     public T this[Vec2 pos] { get => _data[pos.X, pos.Y]; set => _data[pos.X, pos.Y] = value; }
 
-    public bool IsInBounds(int x, int y) => x >= 0 && y >= 0 && x < this.Width && y < this.Height;
-    public bool IsInBounds(Vec2 pos) => pos.X >= 0 && pos.Y >= 0 && pos.X < this.Width && pos.Y < this.Height;
+    public bool IsInBounds(Vec2 pos) => pos.X >= 0 && pos.Y >= 0 && pos.X < Width && pos.Y < Height;
 
-    public void ForEachCell(Action<int, int, T> action) {
-        for (var y = 0; y < this.Height; y++) {
-            for (var x = 0; x < this.Width; x++) {
-                action(x, y, this._data[x, y]);
-            }
-        }
-    }
-
-    public void ForEachCell(Action<Vec2, T> action) {
-        for (var y = 0; y < this.Height; y++) {
-            for (var x = 0; x < this.Width; x++) {
-                action(new Vec2(x, y), this._data[x, y]);
-            }
-        }
-    }
-
-    public void Print(Func<Vec2, T, char> resovleChar) {
-        for (var y = 0; y < this.Height; y++) {
-            for (var x = 0; x < this.Width; x++) {
-                char printVal = resovleChar(new Vec2(x, y), _data[x, y]);
-                Console.Write(printVal);
+    public void Print(Func<Vec2, T, char> resolveChar) {
+        for (int y = 0; y < Height; y++) {
+            for (int x = 0; x < Width; x++) {
+                Console.Write(resolveChar(new Vec2(x, y), _data[x, y]));
             }
             Console.WriteLine();
         }
@@ -291,13 +267,11 @@ public class FixedBoard<T> {
     }
 
     protected void PopulateBoard(string[] input, Func<Vec2, char, T> transform) {
-        for (var y = 0; y < this.Height; y++) {
-            for (var x = 0; x < this.Width; x++) {
-                var item = input[y].Length > x ? input[y][x] : ' ';
-                this._data[x, y] = transform(new Vec2(x, y), item);
+        for (int y = 0; y < Height; y++) {
+            for (int x = 0; x < Width; x++) {
+                char c = input[y].Length > x ? input[y][x] : ' ';
+                _data[x, y] = transform(new Vec2(x, y), c);
             }
         }
     }
-
-    private T[,] _data;
 }
