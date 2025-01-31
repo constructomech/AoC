@@ -43,9 +43,7 @@ void Run(string[] input) {
             var newAmphipods = amphipods.Select(a => a.pos == move.from ? (pos: move.to, type: a.type) : a).OrderBy(a => a.pos).ToImmutableArray();
             var newCost = cost + move.cost;
 
-            if (!bestKnownCosts.TryGetValue(newAmphipods, out var existingCost) || newCost < existingCost) {
-                q.Enqueue(newAmphipods, newCost);
-            }
+            q.Enqueue(newAmphipods, newCost);
         }
     }
 
