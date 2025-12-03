@@ -20,8 +20,6 @@ void Run(string[] input) {
 
         for (var outputIdx = 0; outputIdx < 12; outputIdx++)
         {
-            digits.Append('0');
-            
             for (int i = inputIdx; i <= line.Length - 12 + outputIdx; i++)
             {
                 if (line[i] > digits[outputIdx])
