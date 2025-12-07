@@ -1,9 +1,8 @@
 ﻿using System.Collections.Immutable;
 using System.Diagnostics;
 
-
-var CardinalAdjacent = ImmutableList.Create<Vec2>(new(1, 0), new(0, 1), new(-1, 0), new(0, -1));
-var DiagonallyAdjacent = ImmutableList.Create<Vec2>(new(-1, -1), new(-1, 1), new(1, 1), new(1, -1));
+var CardinalAdjacent = ImmutableList.Create(Vec2.West, Vec2.North, Vec2.East, Vec2.South);
+var DiagonallyAdjacent = ImmutableList.Create(Vec2.NorthWest, Vec2.NorthEast, Vec2.SouthEast, Vec2.SouthWest);
 var AllAdjacent = CardinalAdjacent.AddRange(DiagonallyAdjacent);
 
 Stopwatch watch = new Stopwatch();
@@ -108,6 +107,16 @@ class ListComparer<T> : IEqualityComparer<List<T>>
 // VECTORS
 
 public record Vec2 (int X, int Y) {
+    public static readonly Vec2 Zero = new(0, 0);
+    public static readonly Vec2 North = new(0, -1);
+    public static readonly Vec2 South = new(0, 1);
+    public static readonly Vec2 West = new(-1, 0);
+    public static readonly Vec2 East = new(1, 0);
+    public static readonly Vec2 NorthWest = new(-1, -1);
+    public static readonly Vec2 NorthEast = new(1, -1);
+    public static readonly Vec2 SouthWest = new(-1, 1);
+    public static readonly Vec2 SouthEast = new(1, 1);
+
     public static Vec2 FromString(string s) {
         var parts = s.Split(',');
         return new(int.Parse(parts[0]), int.Parse(parts[1]));
@@ -177,21 +186,21 @@ public class FixedBoard<T> {
         }
     }
 
-    private void PopulateBoard(string[] input, Func<char, T> transform) {
+    private void PopulateBoard(string[] input, Func<Vec2, char, T> transform) {
         for (var y = 0; y < this.Height; y++) {
             for (var x = 0; x < this.Width; x++) {
-                this._data[x, y] = transform(input[y][x]);
+                this._data[x, y] = transform(new (x, y), input[y][x]);
             }
         }
     }
 
     public static FixedBoard<char> FromString(string[] input) {
         var board = new FixedBoard<char>(input.Length > 0 ? input[0].Length : 0, input.Length);
-        board.PopulateBoard(input, c => c);
+        board.PopulateBoard(input, (pos, c) => c);
         return board;
     }
 
-    public static FixedBoard<T> FromString(string[] input, Func<char, T> transform) {
+    public static FixedBoard<T> FromString(string[] input, Func<Vec2, char, T> transform) {
         var board = new FixedBoard<T>(input.Length > 0 ? input[0].Length : 0, input.Length);
         board.PopulateBoard(input, transform);
         return board;
