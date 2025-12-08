@@ -135,6 +135,8 @@ public record Vec3 (int X, int Y, int Z) {
         return new(int.Parse(parts[0]), int.Parse(parts[1]), int.Parse(parts[2]));
     }
 
+    public double Magnitude { get => Math.Sqrt((long)X * X + (long)Y * Y + (long)Z * Z); }
+
     public static Vec3 operator +(Vec3 a, Vec3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
 
     public static Vec3 operator -(Vec3 a, Vec3 b) => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
