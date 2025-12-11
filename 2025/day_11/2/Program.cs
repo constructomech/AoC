@@ -11,51 +11,45 @@ Console.WriteLine($"Completed in {watch.ElapsedMilliseconds}ms");
 
 void Run(string[] input)
 {
-    decimal result = 0;
-
-    var devices = new Dictionary<string, List<string>>();
-
-    foreach (var line in input)
-    {
-        var parts = line.Split(':');
-        var device = parts[0];
-        var connections = parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).ToList();
-        devices.Add(device, connections);
-    }
+    var devices = input.Select(line => line.Split(':')).ToDictionary(
+        parts => parts[0],
+        parts => parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList()
+    );
 
     var cache = new Dictionary<(string from, string to), Histogram>();
 
-    var histogram = FindPath(cache, devices, "svr", "out");
-    histogram.Print();
-    result = histogram.GetCountWithTags( new() { "dac", "fft" });
-    Console.WriteLine($"Result: {result}");
-}
-
-Histogram FindPath(Dictionary<(string from, string to), Histogram> cache, Dictionary<string, List<string>> devices, string from, string to)
-{
-    if (cache.TryGetValue((from, to), out Histogram result)) return result.Clone();
-    result = new Histogram();
-
-    foreach (var next in devices[from])
+    Histogram FindPath(string from, string to)
     {
-        if (next == to)
+        if (cache.TryGetValue((from, to), out Histogram result)) return result.Clone();
+        result = new Histogram();
+
+        foreach (var next in devices[from])
         {
-            result += 1;
-        }
-        else
-        {
-            var newPaths = FindPath(cache, devices, next, to);
-            if (next == "dac" || next == "fft")
+            if (next == to)
             {
-                Console.WriteLine($"Encountered {next} after {from} node");
-                newPaths.AddTag(next);
+                result += 1;
             }
-            result += newPaths;
+            else
+            {
+                var newPaths = FindPath(next, to);
+                if (next == "dac" || next == "fft")
+                {
+                    Console.WriteLine($"Encountered {next} after {from} node");
+                    newPaths.AddTag(next);
+                }
+                result += newPaths;
+            }
         }
+
+        cache.Add((from, to), result.Clone());
+        return result;
     }
 
-    cache.Add((from, to), result.Clone());
-    return result;
+    var histogram = FindPath("svr", "out");
+    histogram.Print();
+
+    decimal result = histogram.GetCountWithTags( new() { "dac", "fft" });
+    Console.WriteLine($"Result: {result}");
 }
 
 class Histogram

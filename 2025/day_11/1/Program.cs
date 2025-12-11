@@ -13,39 +13,33 @@ void Run(string[] input)
 {
     var result = 0L;
 
-    var devices = new Dictionary<string, List<string>>();
-
-    foreach (var line in input)
-    {
-        var parts = line.Split(':');
-        var device = parts[0];
-        var connections = parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(c => c.Trim()).ToList();
-        devices.Add(device, connections);
-    }
+    var devices = input.Select(line => line.Split(':')).ToDictionary(
+        parts => parts[0],
+        parts => parts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries).ToList()
+    );
 
     var cache = new Dictionary<(string from, string to), long>();
 
-    result = FindPath(cache, devices, "you", "out");
-    
-    Console.WriteLine($"Result: {result}");
-}
-
-long FindPath(Dictionary<(string from, string to), long> cache, Dictionary<string, List<string>> devices, string from, string to)
-{
-    if (cache.TryGetValue((from, to), out long result)) return result;
-
-    foreach (var next in devices[from])
+    long FindPath(string from, string to)
     {
-        if (next == to)
+        if (cache.TryGetValue((from, to), out long result)) return result;
+
+        foreach (var next in devices[from])
         {
-            result += 1;
+            if (next == to)
+            {
+                result += 1;
+            }
+            else
+            {
+                result += FindPath(next, to);
+            }
         }
-        else
-        {
-            result += FindPath(cache, devices, next, to);
-        }
+
+        cache.Add((from, to), result);
+        return result;
     }
 
-    cache.Add((from, to), result);
-    return result;
+    result = FindPath("you", "out");
+    Console.WriteLine($"Result: {result}");
 }
